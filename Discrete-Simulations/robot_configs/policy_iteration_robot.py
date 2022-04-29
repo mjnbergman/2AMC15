@@ -2,12 +2,15 @@
 import numpy as np
 
 simple_reward_map = {-2: -1, -1: -1, 0: 0, 1: 1, 2: 2, 3: -1}
-discount_factor = 0.7
+discount_factor = 0.2
 threshold_theta = 0.1
 
 
 def robot_epoch(robot):
     vision = robot.possible_tiles_after_move()
+
+    # Do not include walls in the moveset
+    vision = {move:vision[move] for move in vision if 0 <= vision[move] < 3}
     print(vision)
 
     policy = initialize_policy(vision)
