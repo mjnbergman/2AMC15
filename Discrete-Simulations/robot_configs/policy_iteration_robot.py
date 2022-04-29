@@ -1,7 +1,7 @@
 # An implementation of dynamic programming using policy iteration
 import numpy as np
 
-simple_reward_map = {-2: 0, -1: 0, 0: 0, 1: 1, 2: 2, 3: -1}
+simple_reward_map = {-2: -1, -1: -1, 0: 0, 1: 1, 2: 2, 3: -1}
 discount_factor = 0.7
 threshold_theta = 0.1
 
