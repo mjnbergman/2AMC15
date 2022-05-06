@@ -1,10 +1,10 @@
 # Import our robot algorithm to use in this simulation:
-from robot_configs.greedy_random_robot import robot_epoch
+from robot_configs.policy_iteration_robot import robot_epoch
 import pickle
 from environment import Robot
 import matplotlib.pyplot as plt
 
-grid_file = 'house.grid'
+grid_file = 'example-random-house-0.grid'
 # Cleaned tile percentage at which the room is considered 'clean':
 stopping_criteria = 100
 
