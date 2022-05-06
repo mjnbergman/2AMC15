@@ -25,7 +25,7 @@ def robot_epoch(robot):
         global epsilon
 
         # Do not include walls in the moveset
-        vision = {move: vision[move] for move in vision if 0 <= vision[move] <= 3 or move == robo_position}
+        vision = {move: vision[move] for move in vision if 0 <= vision[move] <= 3}
         #  print(vision)
 
         policy = initialize_policy(vision, robot)
@@ -43,7 +43,7 @@ def robot_epoch(robot):
     print(optimal_policy)
     print(robo_position)
     chosen_move = optimal_policy[robo_position]
-    print("Have chosen move boi ", chosen_move)
+    print("Have chosen move boi ", chosen_move, "value func ", optimal_value_func)
     new_orient_dir = (chosen_move[0] - robo_position[0], chosen_move[1] - robo_position[1])
     print("Orienting to ", new_orient_dir)
     # Rotation code stolen from greedy robot
@@ -57,11 +57,11 @@ def initialize_policy(vision, robot):
     robo_position = robot.pos
     start_state = robo_position
     start_moves = get_neighbouring_moves(vision, start_state, robot)
-    print(start_moves)
+ #   print(start_moves)
     policy = {start_state: None}
     for s in vision:
         s_primes = get_neighbouring_moves(vision, s, robot)
-        print("Doing ", s)
+    #    print("Doing ", s)
         if len(s_primes) > 0:
             policy[s] = None
     return policy
@@ -102,7 +102,7 @@ def evaluate_policy(vision, policy, value_func, robot):
                     reward = simple_reward_map[int(vision[s_prime])] # Reward changes, after sweeping a square it has to be updated again
                 #        print("Reward is ", reward)
                 if policy[move] == s_prime:
-                    value_func[move] += (policy[move] == s_prime) * (
+                    value_func[move] += (
                             reward + discount_factor * value_func[s_prime])
             #      print("Got past loop")
             delta = max(delta, abs(move_value - value_func[move]))
@@ -149,5 +149,5 @@ def improve_policy(policy, vision, value_func, robot):
              #   print(policy)
                 value_func = evaluate_policy(vision, policy, value_func, robot)
 
-    print("Final policy is: ", policy)
+  #  print("Final policy is: ", policy)
     return policy, value_func
