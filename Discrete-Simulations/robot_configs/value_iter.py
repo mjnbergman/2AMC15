@@ -93,7 +93,7 @@ def policy_eval(grid, robot, max_iter=1000):
 
 
         # If difference between iterations if below threshold return current values
-        if np.max(abs(values-values2)) < .01:
+        if np.max(abs(values-values2)) < .0001:
             print(f"{iter} iterations", np.max(abs(values-values2)))
 
             return values2
@@ -139,17 +139,15 @@ def get_greedy_directions(values, robot):
     return directions
 
 
-
-
 def robot_epoch(robot):
     """
     Makes a move for the robot based on the policy generated
-    in the policy iteration
+    in the policy iteration step
 
     @robot: original robot that is on its actual position
     
     """
-    # Perform policy evaluation
+    # Get vaues from policy evaluation step
     values = policy_eval(robot.grid.cells, robot)
 
     # Create policy from greedy moves

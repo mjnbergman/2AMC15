@@ -27,33 +27,39 @@ def policy_eval(grid, robot, values, policy, max_iter=1000):
     
     """
 
-
     robot2 = copy.deepcopy(robot)
 
     # Copy of the orignal values
     values1 = copy.deepcopy(values)
 
-
     for iter in range(max_iter):
+        # keeps new values of this iteration
         values2 = np.zeros_like(grid)
 
+        # Loops over entire grid
         for x in range(0, len(grid)):
             for y in range(0, len(grid[0])):
-
+                # Move robot to new position
                 robot2.pos = (x, y)
 
+                # Skips tiles that contain walls and obstacles
                 if policy[x,y] == '-':
                     continue
        
+                # Get move (action) specified by current policy 
                 move =  robot.dirs[policy[x,y]]
                 move_coord = tuple(np.array(robot2.pos) + (np.array(move)))
-                value = values1[move_coord]
-                     
+                
+                # Get previous value of move specified by policy
+                value = values1[move_coord]     
+
+                # Calculate for value for all actions: gamma (discount) * previous_value(action) + reward(action)
                 val = gamma*value + simple_reward_map[grid[move_coord]]
 
                 values2[x,y] = val
 
-        if np.max(abs(values1-values2)) < .01:
+        # If difference between iterations if below threshold return current values
+        if np.max(abs(values1-values2)) < .0001:
             print(f"{iter} iterations", np.max(abs(values1-values2)))
 
             return values2
@@ -64,40 +70,66 @@ def policy_eval(grid, robot, values, policy, max_iter=1000):
 
 
 def get_greedy_directions(values, robot):
+    """
+    Evaluates and returns the best direction (i.e. action) to take based greedily choosing 
+    the one with the highest value calulated in the policy evaluation
+
+    @robot: original robot that is on its actual position
+    @values: values calculated in policy_iteration
+    
+    """
+
     robot2 = copy.deepcopy(robot)
     directions = np.empty_like(values, dtype=str)
 
     for x in range(0, len(values)):
         for y in range(0, len(values[0])):
+            # Get possible tiles in for robot in position x,y
             robot2.pos = (x, y)
-
             possible_tiles = robot2.possible_tiles_after_move()
+
+            # Filter out walls and obstacles (!=-9)
             possible_tiles = {move:possible_tiles[move] for move in possible_tiles if simple_reward_map[robot.grid.cells[robot2.pos[0]+move[0], robot2.pos[1]+move[1]]] != -9}
 
-            values1 = [simple_reward_map[robot.grid.cells[robot2.pos[0]+move[0], robot2.pos[1]+move[1]]] +gamma*values[robot2.pos[0]+move[0], robot2.pos[1]+move[1]] for move in possible_tiles]
+            values2 = [simple_reward_map[robot.grid.cells[robot2.pos[0]+move[0], robot2.pos[1]+move[1]]] +gamma*values[robot2.pos[0]+move[0], robot2.pos[1]+move[1]] for move in possible_tiles]
             
-            if len(values1) == 0:
+            # If not possible tiles return '-' as direction else take the move with highest value
+            if len(values2) == 0:
                 directions[x,y] = '-'
             else:
 
-                best_move_index = np.argmax(values1)
+                best_move_index = np.argmax(values2)
                 best_move = list(possible_tiles.keys())[best_move_index]
                 new_orient = list(robot.dirs.keys())[list(robot.dirs.values()).index(best_move)]
 
                 directions[x,y]=new_orient
+
     return directions
 
 def policy_improv(policy, values, robot):
+    """
+    Checks for each state (tile) if an other direction (i.e. move/action) has a better value. If so
+    it changes the policy. If policy is not updated in a step, it is declared stable
 
-    greedy_directions  =get_greedy_directions(values, robot)
+    @policy: current policy
+    @values: values calculated in policy_iteration
+    @robot: original robot that is on its actual position
+    
+    """
+
+    # Gets the greedily best direction to move in for each square
+    greedy_directions = get_greedy_directions(values, robot)
 
     stable_policy=True
 
     for x in range(0, len(policy)):
         for y in range(0, len(policy[0])):
+
+            # Skip walls and obstacles
             if policy[x,y] == '-':
                 continue
 
+            # Change policy if greedy direction is different and signal that policy is not stable
             if greedy_directions[x,y] != policy[x,y]:
                 policy[x,y] = greedy_directions[x,y]
                 stable_policy=False
@@ -106,59 +138,93 @@ def policy_improv(policy, values, robot):
 
 
 def gen_policy(robot, grid):
+    """
+    Generates a random policy to start in which walls and obstacles
+    have no policy and can't be the suggested policy of another state
+
+
+    @robot: original robot that is on its actual position
+    @grid: original grid with tile value
+
+    """
+
     robot2 = copy.deepcopy(robot)
     policy = np.empty_like(grid, dtype=str)
 
+    # Loops over entire grid
     for x in range(0, len(grid)):
         for y in range(0, len(grid[0])):
+
+            # Move robot to new position
             robot2.pos = (x, y)
 
-            directions = list(robot.dirs.keys())
 
-           # Remove walls etc
+           # Skip walls and obstacles, no policy is given instead '-'
             if grid[robot2.pos] < 0 and grid[robot2.pos] > -3:
                 policy[x, y]='-'
                 continue
                 
+            
             possible_dirs = []
+            directions = list(robot.dirs.keys())
 
+            # Iterate over all possible directions
             for dir in directions:
                 move = robot.dirs[dir]
-                to_check = tuple(np.array(robot2.pos) + (np.array(move)))
+                move_coord = tuple(np.array(robot2.pos) + (np.array(move)))
 
-                if to_check[0] < robot.grid.cells.shape[0] and to_check[1] < robot.grid.cells.shape[1] and to_check[
-                    0] >= 0 and to_check[1] >= 0:
+                # Check if move is inside bounds
+                if move_coord[0] < robot.grid.cells.shape[0] and move_coord[1] < robot.grid.cells.shape[1] and move_coord[
+                    0] >= 0 and move_coord[1] >= 0:
                     
-                    # Remove walls etc
-                    if grid[to_check] < 0 and grid[to_check] > -3:
+                    # Skip move that point to walls or obstacles 
+                    if grid[move_coord] < 0 and grid[move_coord] > -3:
                         continue
                     
+                    # Add move to possible directions to move to
                     possible_dirs.append(dir)
 
+            # randomly choose direction as policy
             policy[x, y] = np.random.choice(possible_dirs)
  
     return policy
 
 
 def robot_epoch(robot):
+    """
+    Makes a move for the robot based on the policy generated
+    in three steps. Random policy initialization and then repeating steps
+    of policy evaluation and improvement until the policy is stable
 
+    @robot: original robot that is on its actual position
+    """
+
+    # Initializes random policy
     policy = gen_policy(robot, robot.grid.cells)
 
+    # Initializes values as 0
     values = np.zeros_like(policy, dtype=float)
 
+    # Iterates maximally 3000 steps of policy evaluation and policy improvement
     for step in range(3000):
+        # Get vaues from policy evaluation step
         values = policy_eval(robot.grid.cells, robot, values, policy)
 
+        # Calculate new policy and determines if it is stable
         stable_policy = policy_improv(policy, values, robot)
 
+        # If policy is stable stop stepping
         if stable_policy:
             print(f"stable after {step+1} steps")
             break
+    
 
+    # Get direction (orientation) to make move in from stable policy
     new_orient = policy[robot.pos[0], robot.pos[1]]
+    
     # Orient ourselves towards the dirty tile:
     while new_orient != robot.orientation:
-
         robot.rotate('r')
+    
     # Move:
     robot.move()
