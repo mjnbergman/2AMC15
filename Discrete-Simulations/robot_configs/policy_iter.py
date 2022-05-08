@@ -115,8 +115,6 @@ def gen_policy(robot, grid):
 
             directions = list(robot.dirs.keys())
 
-            found_dir =False
-
            # Remove walls etc
             if grid[robot2.pos] < 0 and grid[robot2.pos] > -3:
                 policy[x, y]='-'
@@ -138,39 +136,24 @@ def gen_policy(robot, grid):
                     possible_dirs.append(dir)
 
             policy[x, y] = np.random.choice(possible_dirs)
-            # if not found_dir:
-            #     policy[x, y]='-'
-            # print(data)
-     
-      
+ 
     return policy
 
 
 def robot_epoch(robot):
-    # Get the possible values (dirty/clean) of the tiles we can end up at after a move:
-    print("Grid")
-    print(np.vectorize(lambda x: simple_reward_map[x])(robot.grid.cells).T)
-
-    # possible_tiles = robot.possible_tiles_after_move()
-    # possible_tiles = {move:possible_tiles[move] for move in possible_tiles if possible_tiles[move] > -1}
 
     policy = gen_policy(robot, robot.grid.cells)
-    print(policy.T)
 
     values = np.zeros_like(policy, dtype=float)
 
-    for iter in range(3000):
-        print(f"Step {iter}") 
-        # print(iter)
+    for step in range(3000):
         values = policy_eval(robot.grid.cells, robot, values, policy)
-        print(np.around(values.T,2))
 
         stable_policy = policy_improv(policy, values, robot)
-        # print(policy.T)
+
         if stable_policy:
-            print(f"stable after {iter+1} steps")
+            print(f"stable after {step+1} steps")
             break
-        print()
 
     new_orient = policy[robot.pos[0], robot.pos[1]]
     # Orient ourselves towards the dirty tile:
