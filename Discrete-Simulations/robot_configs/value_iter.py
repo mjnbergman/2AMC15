@@ -7,7 +7,6 @@
 import copy
 import numpy as np
 
-
 # Reward map that provides the scores associated with tiles. -3<=current position, -2&-1=walls&obstacles, 0=clean, 1=dirty, 2=goal
 simple_reward_map = {-6:-2,-5:-2,-4:-2 ,-3:-2,-2: -9, -1: -9, 0: -2 , 1: 2, 2: 4, 3: -1}
 

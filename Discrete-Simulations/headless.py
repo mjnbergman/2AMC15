@@ -1,10 +1,14 @@
 # Import our robot algorithm to use in this simulation:
-from robot_configs.greedy_random_robot import robot_epoch
+from robot_configs.policy_iter import robot_epoch
 import pickle
 from environment import Robot
 import matplotlib.pyplot as plt
+import time
 
-grid_file = 'house.grid'
+t0 = time.time()
+
+
+grid_file = 'example-random-level.grid'
 # Cleaned tile percentage at which the room is considered 'clean':
 stopping_criteria = 100
 
@@ -14,8 +18,8 @@ n_moves = []
 deaths = 0
 cleaned = []
 
-# Run 100 times:
-for i in range(100):
+# Run 5 times:
+for i in range(5):
     # Open the grid file.
     # (You can create one yourself using the provided editor).
     with open(f'grid_configs/{grid_file}', 'rb') as f:
@@ -23,7 +27,7 @@ for i in range(100):
     # Calculate the total visitable tiles:
     n_total_tiles = (grid.cells >= 0).sum()
     # Spawn the robot at (1,1) facing north with battery drainage enabled:
-    robot = Robot(grid, (1, 1), orientation='n', battery_drain_p=0.5, battery_drain_lam=2)
+    robot = Robot(grid, (1, 1), orientation='n', battery_drain_p=1, battery_drain_lam=0)
     # Keep track of the number of robot decision epochs:
     n_epochs = 0
     while True:
@@ -52,6 +56,7 @@ for i in range(100):
     efficiencies.append(float(efficiency))
     n_moves.append(len(robot.history[0]))
     cleaned.append(clean_percent)
+    print("done")
 
 # Make some plots:
 plt.hist(cleaned)
@@ -61,7 +66,11 @@ plt.ylabel('count')
 plt.show()
 
 plt.hist(efficiencies)
+print(efficiencies)
 plt.title('Efficiency of robot.')
 plt.xlabel('Efficiency %')
 plt.ylabel('count')
 plt.show()
+t1 = time.time()
+total = t1-t0
+print(total)
