@@ -3,25 +3,9 @@ import copy
 
 import numpy as np
 
-simple_reward_map = {-6:-2,-5:-2,-4:-2 , -3:-2,-2: -1, -1: -1, 0: -3 , 1: 1, 2: 4, 3: -1}
+simple_reward_map = {-6:-2,-5:-2,-4:-2 , -3:-2,-2: -9, -1: -9, 0: -2 , 1: 2, 2: 4, 3: -1}
 
-gamma=.95
-def get_tiles(robot, grid, values, policy_value):
-
-    move = robot.dirs[policy_value]
-    # Fool the robot and show a death tile as normal (dirty)
-    data = {}
-
-    to_check = tuple(np.array(robot.pos) + (np.array(move) * (1)))
-    if to_check[0] < robot.grid.cells.shape[0] and to_check[1] < robot.grid.cells.shape[1] and to_check[
-        0] >= 0 and to_check[1] >= 0:
-
-        data[tuple(np.array(move))] = values[to_check]
-            # print(data)
-        
-
-    return data
-
+gamma=.2
 
 
 def policy_eval(grid, robot, values, policy):
@@ -29,7 +13,8 @@ def policy_eval(grid, robot, values, policy):
 
     values3 = copy.deepcopy(values)
 
-    for iter in range(2):
+
+    for iter in range(1000):
         values2 = np.zeros_like(grid)
 
         for x in range(0, len(grid)):
@@ -45,16 +30,15 @@ def policy_eval(grid, robot, values, policy):
                 value = values3[move_coord]
 
                 # print((x,y), move_coord, policy[x,y],simple_reward_map[grid[move_coord]])
-                if iter==0:
-                    val = simple_reward_map[grid[move_coord]]
-                else:
+         
                     # Reward + 0.7*previous
-                    val = gamma*value + simple_reward_map[grid[move_coord]]
+                     
+                val = gamma*value + simple_reward_map[grid[move_coord]]
 
                 values2[x,y] = val
-        
-        if np.max(abs(values-values2)) < .01:
-            print(f"{iter} iterations", np.max(values-values2))
+        # print(values2.T)
+        if np.max(abs(values3-values2)) < .01:
+            print(f"{iter} iterations", np.max(abs(values3-values2)))
 
             return values2
 
@@ -72,9 +56,10 @@ def get_greedy_directions(values, robot):
             robot2.pos = (x, y)
 
             possible_tiles = robot2.possible_tiles_after_move()
-            possible_tiles = {move:possible_tiles[move] for move in possible_tiles if possible_tiles[move] > -1}
+            possible_tiles = {move:possible_tiles[move] for move in possible_tiles if simple_reward_map[robot.grid.cells[robot2.pos[0]+move[0], robot2.pos[1]+move[1]]] != -9}
 
-            values1 = [values[robot2.pos[0]+move[0], robot2.pos[1]+move[1]] for move in possible_tiles if possible_tiles[move] > -1]
+            values1 = [simple_reward_map[robot.grid.cells[robot2.pos[0]+move[0], robot2.pos[1]+move[1]]] +gamma*values[robot2.pos[0]+move[0], robot2.pos[1]+move[1]] for move in possible_tiles]
+            
             if len(values1) == 0:
                 directions[x,y] = '-'
             else:
@@ -121,6 +106,7 @@ def gen_policy(robot, grid):
                 policy[x, y]='-'
                 continue
                 
+            possible_dirs = []
 
             for dir in directions:
                 move = robot.dirs[dir]
@@ -132,18 +118,17 @@ def gen_policy(robot, grid):
                     # Remove walls etc
                     if grid[to_check] < 0 and grid[to_check] > -3:
                         continue
-                        
-                    policy[x, y] = dir
-                    found_dir = True
+                    
+                    possible_dirs.append(dir)
 
-                    break
-
-            if not found_dir:
-                policy[x, y]='-'
+            policy[x, y] = np.random.choice(possible_dirs)
+            # if not found_dir:
+            #     policy[x, y]='-'
             # print(data)
      
       
     return policy
+
 
 def robot_epoch(robot):
     # Get the possible values (dirty/clean) of the tiles we can end up at after a move:
@@ -158,14 +143,14 @@ def robot_epoch(robot):
 
     values = np.zeros_like(policy, dtype=float)
 
-    for iter in range(5):
+    for iter in range(3000):
         print(f"Step {iter}") 
         # print(iter)
         values = policy_eval(robot.grid.cells, robot, values, policy)
-        print(values.T)
+        print(np.around(values.T,2))
 
         stable_policy = policy_improv(policy, values, robot)
-        print(policy.T)
+        # print(policy.T)
         if stable_policy:
             print(f"stable after {iter+1} steps")
             break
