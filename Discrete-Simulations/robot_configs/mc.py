@@ -12,13 +12,12 @@ simple_reward_map = {-6: -2, -5: -2, -4: -2, -3: -2, -2: -9, -1: -9, 0: -2, 1: 2
 # Discount factor
 gamma = 1
 
-error = .5
 
 Q = None
 POLICY = np.array([])
 RETURNS = np.array([])
 
-REWARDS = [0]
+REWARDS = []
 PATH = []
 
 
@@ -88,7 +87,7 @@ def gen_policy(robot, grid):
     return policy
 
 
-def robot_epoch(robot):
+def robot_epoch(robot, error = .7):
     """
     Makes a move for the robot based on the policy generated
     in three steps. Random policy initialization and then repeating steps
@@ -105,6 +104,7 @@ def robot_epoch(robot):
 
     # Initializes polocy, values and returns (for each Q(S,a) pair)
     if POLICY.shape[0] == 0:
+        print("new")
         POLICY = gen_policy(robot, robot.grid.cells)
         Q = np.array([[{action: 0 for action in get_actions(x, y, robot, robot.grid.cells)} for y, cell in enumerate(row)] for x, row in enumerate(robot.grid.cells)])
         RETURNS = np.array([[{action: [] for action in get_actions(x, y, robot, robot.grid.cells)} for y, cell in enumerate(row)] for x, row in enumerate(robot.grid.cells)])
@@ -115,10 +115,10 @@ def robot_epoch(robot):
     action_coords = tuple(np.array(robot.pos) + (np.array(action)))
 
     # Calculate returns
-    G = gamma*REWARDS[-1] + simple_reward_map[robot.grid.cells[action_coords]]
+    # G = gamma*REWARDS[-1] + simple_reward_map[robot.grid.cells[action_coords]]
 
     PATH.append([robot.pos, action])
-    REWARDS.append(G)
+    REWARDS.append(simple_reward_map[robot.grid.cells[action_coords]])
 
     new_orient = list(robot.dirs.keys())[list(robot.dirs.values()).index(action)]
 
@@ -127,31 +127,39 @@ def robot_epoch(robot):
         robot.rotate('r')
 
     robot.move()
+    # print(robot.grid.cells[robot.grid.cells==1].shape)
 
     # Policy Improvement
     # Update Policy for each square on which a move is made
-    if not robot.alive:
-        for [(x, y), action] in PATH:
+    if not robot.alive or robot.grid.cells[robot.grid.cells==1].shape[0] == 0:
+        G = 0
+
+        for i in range(1, len(PATH)+1):
+    
+            (x, y), action =  PATH[-i]
+            
             # Where in path is first occurence
             path_index = PATH.index([(x, y), action])
 
-            # Calculate returns after first occurence
-            RETURNS[x, y][action].append(REWARDS[-1] - REWARDS[path_index])
+            if [(x, y), action] not in PATH[:-i]: 
+                G = gamma*G + REWARDS[-i]
 
-            Q[x, y][action] = np.mean(RETURNS[x, y][action])
+                # Calculate returns after first occurence
+                RETURNS[x, y][action].append(G)
 
-            action_values = get_actions(x, y, robot, robot.grid.cells, Q)
-            max_action = max(action_values, key=action_values.get)
+                Q[x, y][action] = np.mean(RETURNS[x, y][action])
 
-            POLICY[x, y] = {action: e_soft(POLICY[x, y].keys(), error, action == max_action) for action in POLICY[x, y].keys()}
+                action_values = get_actions(x, y, robot, robot.grid.cells, Q)
+                max_action = max(action_values, key=action_values.get)
+
+                POLICY[x, y] = {action: e_soft(POLICY[x, y].keys(), error, action == max_action) for action in POLICY[x, y].keys()}
 
         PATH = []
-        REWARDS = [0]
-        G = 0
-        print("\n 1, 2")
-        print(get_actions(1, 2, robot, robot.grid.cells, Q))
-        print(POLICY[1, 2])
-        print("\n 2, 1")
+        REWARDS = []
+        # print("\n 1, 2")
+        # print(get_actions(1, 2, robot, robot.grid.cells, Q))
+        # print(POLICY[1, 2])
+        # print("\n 2, 1")
 
-        print(get_actions(2, 1, robot, robot.grid.cells, Q))
-        print(POLICY[2, 1])
+        # print(get_actions(2, 1, robot, robot.grid.cells, Q))
+        # print(POLICY[2, 1])

@@ -1,5 +1,8 @@
+
 # Import our robot algorithm to use in this simulation:
-from robot_configs.policy_iter import robot_epoch
+# from robot_configs.policy_iter import robot_epoch
+from robot_configs.mc import robot_epoch
+
 import pickle
 from environment import Robot
 import matplotlib.pyplot as plt
@@ -8,7 +11,7 @@ import time
 t0 = time.time()
 
 
-grid_file = 'example-random-level.grid'
+grid_file = 't.grid'
 # Cleaned tile percentage at which the room is considered 'clean':
 stopping_criteria = 100
 
@@ -17,9 +20,13 @@ efficiencies = []
 n_moves = []
 deaths = 0
 cleaned = []
+error = .9
 
 # Run 5 times:
-for i in range(5):
+for i in range(200):
+    error -= .5/400
+
+    print(i, error)
     # Open the grid file.
     # (You can create one yourself using the provided editor).
     with open(f'grid_configs/{grid_file}', 'rb') as f:
@@ -33,7 +40,7 @@ for i in range(5):
     while True:
         n_epochs += 1
         # Do a robot epoch (basically call the robot algorithm once):
-        robot_epoch(robot)
+        robot_epoch(robot, error)
         # Stop this simulation instance if robot died :( :
         if not robot.alive:
             deaths += 1
@@ -56,7 +63,7 @@ for i in range(5):
     efficiencies.append(float(efficiency))
     n_moves.append(len(robot.history[0]))
     cleaned.append(clean_percent)
-    print("done")
+    # print("done")
 
 # Make some plots:
 plt.hist(cleaned)
@@ -74,3 +81,6 @@ plt.show()
 t1 = time.time()
 total = t1-t0
 print(total)
+
+import numpy as np
+np.savetxt("ineff.csv", np.array(efficiencies), delimiter=",")
