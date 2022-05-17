@@ -12,6 +12,8 @@ simple_reward_map = {-6: -2, -5: -2, -4: -2, -3: -2, -2: -9, -1: -9, 0: -2, 1: 2
 # Discount factor
 gamma = 1
 
+error = .5
+
 Q = None
 POLICY = np.array([])
 RETURNS = np.array([])
@@ -141,7 +143,7 @@ def robot_epoch(robot):
             action_values = get_actions(x, y, robot, robot.grid.cells, Q)
             max_action = max(action_values, key=action_values.get)
 
-            POLICY[x, y] = {action: e_soft(POLICY[x, y].keys(), .5, action == max_action) for action in POLICY[x, y].keys()}
+            POLICY[x, y] = {action: e_soft(POLICY[x, y].keys(), error, action == max_action) for action in POLICY[x, y].keys()}
 
         PATH = []
         REWARDS = [0]
