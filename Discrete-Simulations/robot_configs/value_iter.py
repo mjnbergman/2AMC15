@@ -13,6 +13,8 @@ simple_reward_map = {-6:-2,-5:-2,-4:-2 ,-3:-2,-2: -9, -1: -9, 0: -2 , 1: 2, 2: 4
 # Discount factor
 gamma=.9
 
+
+
 def get_actions(robot, grid, values):
     """
     Returns the possible tiles (actions) for a robot position. Skips the current tile, unless it 
