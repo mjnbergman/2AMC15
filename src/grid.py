@@ -4,20 +4,20 @@ import math
 
 from src.square import Square
 
-def polar2cartesian(phi: float, r: float) -> tuple[float]:
-    """_summary_
+# def polar2cartesian(phi: float, r: float) -> tuple[float]:
+#     """_summary_
 
-    Args:
-        phi (float): Rotation in radians
-        r (float): Distance form center
+#     Args:
+#         phi (float): Rotation in radians
+#         r (float): Distance form center
 
-    Returns:
-        tuple[float]: Direction vector corresponding
-    """
-    return (
-        r*math.cos(phi),
-        r*math.sin(phi)
-    )
+#     Returns:
+#         tuple[float]: Direction vector corresponding
+#     """
+#     return (
+#         r*math.cos(phi),
+#         r*math.sin(phi)
+#     )
 
 class Grid:
     def __init__(self, width, height):
@@ -56,14 +56,14 @@ class Grid:
             )
             self.robot_patches.append(patch)
             self.axes.add_artist(patch)
-            arrow = patches.Arrow(
-                robot_box.x1 + 0.5*robot_box.x_size,
-                robot_box.y1 + 0.5*robot_box.y_size,
-                *polar2cartesian(robot.rot, 0.5*robot_box.x_size),
-                color="green"
-            )
-            self.robot_arrows.append(arrow)
-            self.axes.add_artist(arrow)
+            # arrow = patches.Arrow(
+            #     robot_box.x1 + 0.5*robot_box.x_size,
+            #     robot_box.y1 + 0.5*robot_box.y_size,
+            #     *polar2cartesian(robot.rot, 0.5*robot_box.x_size),
+            #     color="green"
+            # )
+            # self.robot_arrows.append(arrow)
+            # self.axes.add_artist(arrow)
 
         for robot in robots:
             if self.is_blocked(robot):
@@ -135,12 +135,12 @@ class Grid:
             # self.robot_arrows[i].y = robot_box.y1 + 0.5*robot_box.y_size
             # self.robot_arrows[i].dx, self.robot_arrows[i].dy = polar2cartesian(robot.rot, 0.5*robot_box.x_size)
 
-            self.robot_arrows[i].set_data(
-                robot_box.x1 + 0.5*robot_box.x_size,
-                robot_box.y1 + 0.5*robot_box.y_size,
-                *polar2cartesian(robot.rot, 0.5*robot_box.x_size),
-                color="green"
-            )
+            # self.robot_arrows[i].set_data(
+            #     robot_box.x1 + 0.5*robot_box.x_size,
+            #     robot_box.y1 + 0.5*robot_box.y_size,
+            #     *polar2cartesian(robot.rot, 0.5*robot_box.x_size),
+            #     color="green"
+            # )
         plt.title('Battery levels: ' + '|'.join([str(round(robot.battery_lvl, 2)) for robot in self.robots]))
         plt.draw()
         plt.pause(0.0001)
