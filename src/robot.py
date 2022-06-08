@@ -28,12 +28,31 @@ class Robot:
         self.alive = True
 
 
-    def spawn(self, grid: Grid, start_x: float=0, start_y: float=0):
+    def spawn(self, grid: Grid, start_x: float=0, start_y: float=0, 
+              start_rot: float=0):
+        """Spawn robot on grid
+
+        Args:
+            grid (Grid): Grid on which to place robot.
+            start_x (float, optional): Start position x. Defaults to 0.
+            start_y (float, optional): Start position y. Defaults to 0.
+            start_rot (float, optional): Start rotation in radians. Defaults to 0.
+        """        
         self.pos = (start_x, start_y)
+        self.rot = start_rot
         self.bounding_box = Square(start_x, start_x + self.size, start_y, start_y + self.size)
         self.history = [self.bounding_box]
         self.grid = grid
         assert self.grid.is_in_bounds(start_x, start_y, self.size, self.size)
+
+
+    def set_direction(self, phi: float, r: float) -> None:
+        """Input polar coordinates to set direction_vector for move call
+
+        Args:
+            phi (float): Rotation in range (-1, 1) -> (-180, 180)
+            r (float): How much to move after 
+        """        
 
 
     def move(self, p_random: float=0):

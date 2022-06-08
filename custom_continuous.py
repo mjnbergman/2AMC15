@@ -6,8 +6,10 @@ from src.utils import parse_config
 # Load grid from file and spawn robot(s)
 grid = parse_config('example.json')
 grid.spawn_robots(
-    [Robot(id=1, size=1, battery_drain_p=0.0, battery_drain_lam=10)], 
-    [(0, 0)])
+    robots=[Robot(id=1, size=1, battery_drain_p=0.0, battery_drain_lam=10)], 
+    starting_positions=[(0, 0)],
+    starting_rotations=[0]
+)
 
 # Main loop
 while True:
@@ -22,7 +24,7 @@ while True:
     for robot in grid.robots:
         # To avoid deadlocks, only try to move alive robots
         if robot.alive:
-            if not robot.move(p_random=0):
-                robot.direction_vector = (1.1, 1.1)
+            if not robot.move(p_random=0.05):
+                robot.direction_vector = (0.1, 0.1)
 grid.plot_grid()
 time.sleep(3)
