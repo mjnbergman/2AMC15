@@ -7,7 +7,7 @@ from src.square import Square
 from src.grid import Grid
 
 
-class Reward(enum.Enum):
+class Reward(enum.IntEnum):
     DEAD = -1000,
     GOAL = 1,
     TIME_PENALTY = -1
@@ -55,16 +55,16 @@ class Robot:
         # Cant move if we died:
         if self.alive:
             if self.direction_vector == (0, 0):  # Literally 0 speed so no movement.
-                return False
+                return False, reward
             new_pos = tuple(np.array(self.pos) + self.direction_vector)
             # Temporarily set the new bounding box:
             new_box = deepcopy(self.bounding_box)
             new_box.update_pos(*new_pos)
             self.bounding_box = new_box
             if self.grid.is_blocked(self):
-                return False
+                return False, reward
             elif not self.grid.is_in_bounds(new_pos[0], new_pos[1], self.size, self.size):
-                return False
+                return False, reward
             else:
                 do_battery_drain = np.random.binomial(1, self.battery_drain_p)
                 if do_battery_drain == 1 and self.battery_lvl > 0:
@@ -73,7 +73,7 @@ class Robot:
                     if self.battery_lvl <= 0:
                         self.alive = False
                         self.battery_lvl = 0
-                        return False
+                        return False, reward
                 del new_box
                 self.pos = new_pos
                 self.bounding_box.update_pos(*self.pos)
