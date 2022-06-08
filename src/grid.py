@@ -1,13 +1,14 @@
 import matplotlib.pyplot as plt
 from matplotlib import patches
 import numpy as np
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from src.square import Square
 
 class Grid:
     def __init__(self, width, height):
         self.width = width
         self.height = height
-        self.obstacles = []
+        self.obstacles 3= []
         self.goals = []
         self.robots = []
 
@@ -27,10 +28,17 @@ class Grid:
         self.goal_patches = []
         self.robot_patches = []
 
-    def fig2rgb_array(self):
-        self.fig.canvas.draw()
-        rgb_data = np.fromstring(self.fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
-        rgb_data = rgb_data.reshape((int(len(rgb_data) / 3), 3))
+    def fig2rgb_array(fig, remove_margins=True):
+        # https://stackoverflow.com/a/35362787/2912349
+        # https://stackoverflow.com/a/54334430/2912349
+
+        if remove_margins:
+            fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+
+        canvas = FigureCanvasAgg(fig)
+        canvas.draw()
+        img_as_string, (width, height) = canvas.print_to_buffer()
+        return np.fromstring(img_as_string, dtype='uint8').reshape((height, width, 4))
 
     def spawn_robots(self, robots, starting_positions):
         self.robots = robots
