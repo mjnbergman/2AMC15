@@ -28,6 +28,7 @@ class Grid:
         self.robot_patches = []
 
     def fig2rgb_array(self):
+        self.fig.canvas.draw()
         rgb_data = np.fromstring(self.fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         rgb_data = rgb_data.reshape((int(len(rgb_data) / 3), 3))
 
