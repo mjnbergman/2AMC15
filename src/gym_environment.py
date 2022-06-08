@@ -1,7 +1,7 @@
 import gym
 from gym import Env
-from utils import parse_config
-from robot import Robot
+from src.utils import parse_config
+from src.robot import Robot
 import numpy as np
 
 
@@ -22,7 +22,7 @@ class RoboEnvironment(Env):
     def initialize_robots(self, nr_robot=1):
         self.grid.spawn_robots(
             [Robot(id=i, size=1, battery_drain_p=0.0, battery_drain_lam=10) for i in range(nr_robot)],
-            [(np.random.uniform(0, self.grid.width), np.random.uniform(0, self.grid.height)) for i in range(nr_robot)])
+            [(1, 1) for i in range(nr_robot)])
 
     def reset(self):
         self.initialize_environment(self.previous_location)
@@ -40,7 +40,7 @@ class RoboEnvironment(Env):
             # To avoid deadlocks, only try to move alive robots
             if robot.alive:
                 robot.direction_vector = action
-                alive, reward = robot.move(p_random=0)
+                alive, reward = robot.move(p_random=1)
                 total_reward += reward
 
         return self.grid.fig2rgb_array(), total_reward, self.dead, []

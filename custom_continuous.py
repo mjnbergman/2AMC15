@@ -5,11 +5,11 @@ from src.gym_environment import RoboEnvironment
 from src.utils import parse_config
 
 # Load grid from file and spawn robot(s)
-env = RoboEnvironment()
+env = RoboEnvironment("example.json")
 
 while True:
     # Take a random action
-    action = env.action_space.sample()
+    action = env.action_space[0]
     obs, reward, done, info = env.step(action)
 
     # Render the game
