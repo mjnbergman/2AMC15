@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib import patches
-
+import numpy as np
 from src.square import Square
 
 class Grid:
@@ -26,6 +26,12 @@ class Grid:
         self.obstacle_patches = []
         self.goal_patches = []
         self.robot_patches = []
+
+    def fig2rgb_array(self):
+        self.fig.canvas.draw()
+        buf = self.fig.canvas.tostring_rgb()
+        ncols, nrows = self.fig.canvas.get_width_height()
+        return np.fromstring(buf, dtype=np.uint8).reshape(nrows, ncols, 3)
 
     def spawn_robots(self, robots, starting_positions):
         self.robots = robots
@@ -84,12 +90,17 @@ class Grid:
                 self.axes.add_artist(patch)
 
     def check_goals(self, robot):
+
+        nr_goals_cleaned = 0
+
         for i, goal in enumerate(self.goals):
             if goal.intersect(robot.bounding_box):
                 self.goals.remove(goal)
+                nr_goals_cleaned += 1
                 self.goal_patches[i].set_xy([-1000, -1000])
                 self.goal_patches.remove(self.goal_patches[i])
 
+        return nr_goals_cleaned
 
     def is_blocked(self, robot):
         blocked_by_obstacle = any([ob.intersect(robot.bounding_box) for ob in self.obstacles])

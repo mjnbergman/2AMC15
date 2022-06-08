@@ -1,14 +1,21 @@
 from copy import deepcopy
 import numpy as np
 import random
+import enum
 
 from src.square import Square
 from src.grid import Grid
 
 
+class Reward(enum.Enum):
+    DEAD = -1000,
+    GOAL = 1,
+    TIME_PENALTY = -1
+
+
 class Robot:
-    def __init__(self, id: int, size: float=1, battery_drain_p: float=0, 
-                 battery_drain_lam: float=0) -> None:
+    def __init__(self, id: int, size: float = 1, battery_drain_p: float = 0,
+                 battery_drain_lam: float = 0) -> None:
         """ Initializes robot
 
          Args:
@@ -26,17 +33,19 @@ class Robot:
         self.battery_drain_lam = battery_drain_lam
         self.battery_lvl = 100
         self.alive = True
+        self.time_penalty = -1
 
-
-    def spawn(self, grid: Grid, start_x: float=0, start_y: float=0):
+    def spawn(self, grid: Grid, start_x: float = 0, start_y: float = 0):
         self.pos = (start_x, start_y)
         self.bounding_box = Square(start_x, start_x + self.size, start_y, start_y + self.size)
         self.history = [self.bounding_box]
         self.grid = grid
         assert self.grid.is_in_bounds(start_x, start_y, self.size, self.size)
 
+    def move(self, p_random: float = 0):
 
-    def move(self, p_random: float=0):
+        reward = Reward.TIME_PENALTY
+
         # If we have a random move happen:
         if np.random.binomial(n=1, p=p_random) == 1:
             self.direction_vector = (random.uniform(-0.1, 0.1), random.uniform(-0.1, 0.1))
@@ -70,7 +79,7 @@ class Robot:
                 self.bounding_box.update_pos(*self.pos)
                 self.history.append(self.bounding_box)
                 # Check if in this position we have reached a goal:
-                self.grid.check_goals(self)
-                return True
+                reward += Reward.GOAL * self.grid.check_goals(self)
+                return True, reward
         else:
-            return False
+            return False, reward + Reward.DEAD
