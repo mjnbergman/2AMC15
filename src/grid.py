@@ -28,10 +28,8 @@ class Grid:
         self.robot_patches = []
 
     def fig2rgb_array(self):
-        self.fig.canvas.draw()
-        buf = self.fig.canvas.tostring_rgb()
-        ncols, nrows = self.fig.canvas.get_width_height()
-        return np.fromstring(buf, dtype=np.uint8).reshape(nrows, ncols, 3)
+        rgb_data = np.fromstring(self.fig.canvas.tostring_rgb(), dtype=np.uint8, sep='')
+        rgb_data = rgb_data.reshape((int(len(rgb_data) / 3), 3))
 
     def spawn_robots(self, robots, starting_positions):
         self.robots = robots
