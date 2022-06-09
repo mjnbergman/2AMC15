@@ -1,0 +1,7 @@
+gym==0.24.1
+matplotlib==3.5.2
+numpy==1.21.2
+opencv-python==4.6.0.66
+pandas=1.4.2
+Pillow==8.4.0
+Shapely=1.8.1
