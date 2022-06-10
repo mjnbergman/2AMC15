@@ -6,6 +6,9 @@ import numpy as np
 import shutil
 import os
 
+from .plotting import plot_multipolygon, plot_polygon
+from .utils import parse_roomsize, parse_polygons
+
 class Grid:
     def __init__(self, configFile: str, robots: list, startingPos: list):
         # Make folder for images
@@ -20,30 +23,17 @@ class Grid:
         # Keep track of all objects in environment
         self.moves = 0
         self.roomsize = config["roomsize"]
-        self.roomPolygon = Polygon([
-            [0, 0],
-            [0, self.roomsize[1]],
-            [self.roomsize[0], self.roomsize[1]],
-            [self.roomsize[0], 0]
-        ])
         self.obstacles = GeometryCollection(
-            self._parse_roomsize(config["roomsize"]) + \
-            self._parse_polygons(config["obstacles"])
+            parse_roomsize(config["roomsize"]) + \
+            parse_polygons(config["obstacles"])
         )
-        self.validArea = self.roomPolygon - \
-            MultiPolygon(self._parse_polygons(config["obstacles"]))
-        self.goals = MultiPolygon(self._parse_polygons(config["goals"]))
-        self.death = MultiPolygon(self._parse_polygons(config["death"]))
+        self.goals = MultiPolygon(parse_polygons(config["goals"]))
+        self.death = MultiPolygon(parse_polygons(config["death"]))
 
         # Spawn robots
         self.robots = robots
         for i, robot in enumerate(self.robots):
             robot.spawn(self, startingPos[i])
-
-        
-
-
-    
 
 
     def plot_grid(self, resolution: int, draw: bool, save: bool) -> np.array:
@@ -70,15 +60,15 @@ class Grid:
         ) 
 
         # Plot goal and death tiles
-        self._plot_multipolygon(self.goals, "orange", self.axes)
-        self._plot_multipolygon(self.death, "red", self.axes)
+        plot_multipolygon(self.goals, "orange", self.axes)
+        plot_multipolygon(self.death, "red", self.axes)
 
         # Plot obstacles
         for geometry in self.obstacles.geoms:
             if isinstance(geometry, MultiPolygon):
-                self._plot_multipolygon(geometry, "black", self.axes)
+                plot_multipolygon(geometry, "black", self.axes)
             elif isinstance(geometry, Polygon):
-                self._plot_polygon(geometry, "black", self.axes)
+                plot_polygon(geometry, "black", self.axes)
             elif isinstance(geometry, LineString):
                 continue
 
@@ -101,62 +91,8 @@ class Grid:
 
         return image
 
-
     
-    def _plot_multipolygon(self, multiPolygon: MultiPolygon, color: str, axes):
-        """Plots MultiPolygon in `color` to `axes`
-
-        Args:
-            multiPolygon (MultiPolygon): Shapes to plot
-            color (str): Color to plot in, e.g. "blue"
-            axes (_type_): Matplotlib axes to plot to
-        """
-        for polygon in multiPolygon.geoms:
-            axes.fill(*polygon.exterior.xy, fc=color)
-
-    def _plot_polygon(self, polygon: Polygon, color: str, axes):
-        """Plots Polygon in `color` to `axes`
-
-        Args:
-            polygon (MultiPolygon): Shape to plot
-            color (str): Color to plot in, e.g. "blue"
-            axes (_type_): Matplotlib axes to plot to
-        """
-        axes.fill(*polygon.exterior.xy, fc=color)
-
-
-    def _parse_roomsize(self, roomsize: list) -> list:
-        """ Parses room size to LineString representing outer bounding box. Used
-            to parse room size.
-
-        Args:
-            roomsize (list[width, height]): Room size laoded form config file
-
-        Returns:
-            list[LineString]: List of length one containing LineString for outer
-                boundary of room.
-        """  
-        return [LineString([
-            (0, 0),                      # Bottom left
-            (0, roomsize[1]),            # Top left
-            (roomsize[0], roomsize[1]),  # Top right
-            (roomsize[0], 0),            # Bottom right
-            (0, 0)
-        ])]      
-
-
-    def _parse_polygons(self, multiPolygonCoords: list) -> list:
-        """ Parses nested structure in config file to list of Polygons. Used to 
-            parse goals, deaths, and walls.
-
-        Args:
-            multiPolygonCoords (list[list[list]]): 
-                Structure: [ [[0, 0], [1, 0], ...] , ...]
-
-        Returns:
-            list[Polygon]: List of polygons
-        """
-        return [Polygon(polygonCoords) for polygonCoords in multiPolygonCoords]
+    
 
         
 

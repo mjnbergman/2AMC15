@@ -25,6 +25,12 @@ class Robot:
 
 
     def spawn(self, grid: Grid, startPos: list):
+        """ Adds grid information to robot and sets startin location and boundary
+
+        Args:
+            grid (Grid): Grid to spawn robot onto
+            startPos (list): [x, y] starting position of robot (centerpoint)
+        """        
         self.centerPoint = Point(startPos) 
         self.boundaryPolygon = self.centerPoint.buffer(self.radius)
         self.grid = grid
@@ -60,8 +66,6 @@ class Robot:
             self.grid.goals -= movementPath
 
 
-
-    
     def _valid_direction(self, directionPoint: Point, tol: float=1e-2) -> Point:
         newCenterPoint = Point(
             self.centerPoint.x + directionPoint.x,
@@ -73,7 +77,6 @@ class Robot:
         validMovements = movementPath - self.grid.obstacles.buffer(self.radius-tol)
 
         if validMovements.is_empty or self.centerPoint.distance(validMovements) > 1e-4:
-            print("No valid moves")
             return Point(0, 0)
         if isinstance(validMovements, BaseMultipartGeometry):
             distanceToGeometries = np.array([
@@ -95,62 +98,4 @@ class Robot:
             newCenterPoint.x - self.centerPoint.x,
             newCenterPoint.y - self.centerPoint.y
         )
-
-        
-
-    # def _valid_direction(self, directionPoint: Point, tol: float=1e-3) -> Point:
-    #     print(directionPoint)
-    #     newCenterPoint = Point(
-    #         self.centerPoint.x + directionPoint.x,
-    #         self.centerPoint.y + directionPoint.y
-    #     )
-
-    #     movementPath = LineString([self.centerPoint, newCenterPoint])
-
-    #     obstacleIntersection = movementPath.intersection(
-    #         self.grid.obstacles.buffer(self.radius)
-    #     )
-
-    #     if obstacleIntersection.is_empty:
-    #         return directionPoint
-    #     if isinstance(obstacleIntersection, BaseMultipartGeometry):
-    #         candidatePoints = []
-    #         for geom in obstacleIntersection.geoms:
-    #             candidatePoints += [Point(coord) for coord in geom.coords]
-    #     else:
-    #         candidatePoints = [Point(coord) for coord in obstacleIntersection.coords]
-
-
-    #     validCenterPoints = self.grid.validArea \
-    #         .buffer(-self.radius+tol, cap_style=2) \
-    #         .buffer(self.radius-tol) \
-    #         .buffer(-self.radius+tol) 
-
-        
-    #     candidatePoints = MultiPoint(candidatePoints) 
-    #     candidatePoints = candidatePoints.intersection(validCenterPoints)
-    #     if not isinstance(candidatePoints, MultiPoint):
-    #         candidatePoints = MultiPoint([candidatePoints]) 
-
-    #     if candidatePoints.is_empty:
-    #         return Point(0, 0)
-    #     else :
-    #         distances = np.array([
-    #             self.centerPoint.distance(candidatePoint)
-    #             for candidatePoint in candidatePoints.geoms
-    #         ])
-    #         distances += (distances <= tol)*9999
-    #         print(distances)
-    #         validNewCenterPoint = candidatePoints.geoms[np.argmin(distances)]
-
-    #     validMovementPath = LineString([self.centerPoint, validNewCenterPoint])
-    #     if not validMovementPath.intersection(
-    #         self.grid.obstacles.buffer(self.radius-tol)
-    #     ).is_empty:
-    #         return Point(0, 0)
-
-    #     return Point(
-    #         validNewCenterPoint.x - self.centerPoint.x,
-    #         validNewCenterPoint.y - self.centerPoint.y
-    #     )
 

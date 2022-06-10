@@ -19,4 +19,5 @@ Voer `main.py` uit en zie het verloop in de folder `./images`. Er wordt gewerkt 
 - [ ] Charging stations? (misschien niet handig met hoe battery % aan model wordt meegegeven?).
 - [ ] Cleaned percentage loggen (orignele goal area - eind goal area)/originele goal area.
 - [ ] Image wordt nu goed weergegeven aan model maar human-readable versie werkt nog niet goed.
+- [ ] Track moves per robot.
 - [ ] Documentatie.
