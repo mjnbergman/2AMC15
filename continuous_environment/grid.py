@@ -21,26 +21,28 @@ class Grid:
             config = json.load(file)
             
         # Keep track of all objects in environment
-        self.moves = 0
         self.roomsize = config["roomsize"]
         self.obstacles = GeometryCollection(
             parse_roomsize(config["roomsize"]) + \
             parse_polygons(config["obstacles"])
         )
         self.goals = MultiPolygon(parse_polygons(config["goals"]))
+        self.totalGoalArea = self.goals.area
         self.death = MultiPolygon(parse_polygons(config["death"]))
 
         # Spawn robots
+        self.moves = {}
         self.robots = robots
         for i, robot in enumerate(self.robots):
             robot.spawn(self, startingPos[i])
+            self.moves[robot.id] = 0
 
 
     def plot_grid(self, resolution: int, draw: bool, save: bool) -> np.array:
         # Create figure 
         DPI = 10
         self.fig = plt.figure(figsize=(resolution/DPI, resolution/DPI), dpi=DPI)
-        self.axes = self.fig.add_axes([0.,0.,1.,1.])
+        self.axes = self.fig.add_axes([0., 0., 1., 1.])
 
         # Remove borders
         self.axes.set_xticklabels([])
@@ -87,7 +89,7 @@ class Grid:
             plt.pause(0.0001)
 
         if save:
-            cv2.imwrite(f"images/{self.moves}.png", image[:, :, ::-1])
+            cv2.imwrite(f"images/{max(self.moves.values())}.png", image[:, :, ::-1])
 
         return image
 

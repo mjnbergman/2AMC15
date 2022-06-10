@@ -7,7 +7,7 @@ from .grid import Grid
 
 
 class Robot:
-    def __init__(self, id: int, radius: float, color: str):
+    def __init__(self, id: int, radius: float, color: str, batteryLevel: float):
         """Spawns robot instance on grid
 
         Args:
@@ -16,12 +16,14 @@ class Robot:
             radius (float): Radius for robot, i.e. total cleaning diameter is 
                 2*`radius`
             grid (Grid): Grid on which to spawn robot
+            batteryLevel (float): Starting amount of battery. i.e. distance
         """
         self.id = id
         self.radius = radius
         self.color = color
-        self.batteryLevel = 100
+        self.batteryLevel = batteryLevel
         self.alive = True
+        self.areaCleaned = 0
 
 
     def spawn(self, grid: Grid, startPos: list):
@@ -50,20 +52,30 @@ class Robot:
             self.centerPoint.x + directionPoint.x,
             self.centerPoint.y + directionPoint.y
         )
-        movementPath = LineString([self.centerPoint, newCenterPoint]).buffer(self.radius)
-
+        movementLine = LineString([self.centerPoint, newCenterPoint])
+        movementPath = movementLine.buffer(self.radius)
 
         if self.alive:
-            self.grid.moves += 1
+            self.grid.moves[self.id] += 1
 
             # Determine death
             if movementPath.intersects(self.grid.death):
                 self.alive = False
-                return False
             
+            # Update values
             self.centerPoint = newCenterPoint
             self.boundaryPolygon = self.centerPoint.buffer(self.radius)
+            oldDirtyArea = self.grid.goals.area
             self.grid.goals -= movementPath
+            newDirtyArea = self.grid.goals.area
+            self.areaCleaned += (oldDirtyArea - newDirtyArea)
+
+            # Update battery
+            self.batteryLevel = max(0, self.batteryLevel - movementLine.length)
+            if self.batteryLevel <= 0:
+                self.alive = False
+
+            
 
 
     def _valid_direction(self, directionPoint: Point, tol: float=1e-2) -> Point:
