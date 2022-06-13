@@ -42,16 +42,16 @@ class Robot:
         self.boundaryPolygon = self.centerPoint.buffer(self.radius)
         self.grid = grid
 
-    def move(self, action: RobotAction):
+    def move(self, action):
 
-        directionPoint = action.direction_vector
+        directionPoint = Point(action) #.direction_vector
 
         # Determine if random move is taken
-        if np.random.binomial(n=1, p=action.p_random) == 1:
-            directionPoint = Point(
-                random.uniform(-5, 5),
-                random.uniform(-5, 5)
-            )
+     #   if np.random.binomial(n=1, p=action.p_random) == 1:
+     #       directionPoint = Point(
+     #           random.uniform(-5, 5),
+     #           random.uniform(-5, 5)
+     #       )
 
         # Determine valid direction and new location
         directionPoint = self._valid_direction(directionPoint)

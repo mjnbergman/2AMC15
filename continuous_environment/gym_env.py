@@ -11,7 +11,9 @@ import matplotlib.pyplot as plt
 from .utils import parse_roomsize, parse_polygons
 from .plotting import plot_multipolygon, plot_polygon
 import cv2
+from copy import deepcopy
 
+action_mapping = {0: [0, 1], 1: [1, 0], 2: [0, -1], 3: [-1, 0]}
 
 class Reward(IntEnum):
     REWARD_PER_AREA = 1,
@@ -38,10 +40,11 @@ class GymEnv(Env):
         # Keep track of all objects in environment
         self.roomsize = self.config["roomsize"]
         self.startingPos = startingPos
+        self.initial_robots = robots
         self.robots = robots
-        self.action_space = spaces.Box(low=-5, high=5, shape=(len(self.robots),2),
-                                       dtype=np.float32)
-
+        #self.action_space = spaces.Box(low=-5, high=5, shape=(len(self.robots),2),
+        #                               dtype=np.uint8)
+        self.action_space = spaces.Discrete(4)
         DPI = 10
         self.fig = plt.figure(figsize=(256 / DPI, 256 / DPI), dpi=DPI)
         self.axes = self.fig.add_axes([0., 0., 1., 1.])
@@ -67,6 +70,7 @@ class GymEnv(Env):
         plt.pause(1)
 
     def reset(self):
+        print("RESET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.obstacles = GeometryCollection(
             parse_roomsize(self.config["roomsize"]) + \
             parse_polygons(self.config["obstacles"])
@@ -77,6 +81,7 @@ class GymEnv(Env):
 
         # Spawn robots
         self.moves = {}
+        self.robots = deepcopy(self.initial_robots)
 
         for i, robot in enumerate(self.robots):
             robot.spawn(self, self.startingPos[i])
@@ -121,8 +126,8 @@ class GymEnv(Env):
         # Move robots
         for i, robot in enumerate(self.robots):
             print(f"Robot {robot.id} battery: {robot.batteryLevel}")
-            print("Moving ", i, actions[i].direction_vector)
-            robot.move(actions[i])
+            print("Moving ", i, action_mapping[actions]) #actions[i].direction_vector
+            robot.move(action_mapping[actions])
 
         alive_vector = [robot.alive for robot in self.robots]
         reward_vector = [robot.areaCleaned * int(Reward.REWARD_PER_AREA) for robot in self.robots]
@@ -164,6 +169,7 @@ class GymEnv(Env):
         if self.save:
             cv2.imwrite(f"images/{max(self.moves.values())}.png", image[:, :, ::-1])
 
-        print(image)
+        print(np.all(~np.array(alive_vector)))
+        print(alive_vector)
 
-        return image, np.sum(reward_vector), np.all(~np.array(alive_vector)), []
+        return image, np.sum(reward_vector), np.all(~np.array(alive_vector)), {}
