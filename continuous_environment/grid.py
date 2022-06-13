@@ -37,11 +37,8 @@ class Grid:
             robot.spawn(self, startingPos[i])
             self.moves[robot.id] = 0
 
-
-    def plot_grid(self, resolution: int, draw: bool, save: bool) -> np.array:
-        # Create figure 
         DPI = 10
-        self.fig = plt.figure(figsize=(resolution/DPI, resolution/DPI), dpi=DPI)
+        self.fig = plt.figure(figsize=(256/DPI, 256/DPI), dpi=DPI)
         self.axes = self.fig.add_axes([0., 0., 1., 1.])
 
         # Remove borders
@@ -51,6 +48,11 @@ class Grid:
         self.axes.set_yticks([])
         self.axes.margins(x=0, y=0)
 
+
+
+
+    def plot_grid(self, resolution: int, draw: bool, save: bool) -> np.array:
+        # Create figure 
         # Plot room background
         self.axes.set_xlim((-0.5, self.roomsize[0]+0.5))
         self.axes.set_ylim((-0.5, self.roomsize[1]+0.5))
@@ -59,7 +61,7 @@ class Grid:
             [0, 0, self.roomsize[0], self.roomsize[0], 0],
             [0, self.roomsize[1], self.roomsize[1], 0, 0],
             fc="white"
-        ) 
+        )
 
         # Plot goal and death tiles
         plot_multipolygon(self.goals, "orange", self.axes)
@@ -86,7 +88,7 @@ class Grid:
 
         if draw:
             plt.draw()
-            plt.pause(0.0001)
+            plt.pause(1)
 
         if save:
             cv2.imwrite(f"images/{max(self.moves.values())}.png", image[:, :, ::-1])

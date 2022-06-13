@@ -3,7 +3,13 @@ from shapely.geometry.base import BaseMultipartGeometry
 import numpy as np
 import random
 
-from .grid import Grid
+from .gym_env import GymEnv
+
+
+class RobotAction:
+    def __init__(self, direction_vector: float, p_random=0):
+        self.direction_vector = Point(direction_vector)
+        self.p_random = p_random
 
 
 class Robot:
@@ -25,22 +31,23 @@ class Robot:
         self.alive = True
         self.areaCleaned = 0
 
-
-    def spawn(self, grid: Grid, startPos: list):
+    def spawn(self, grid, startPos: list):
         """ Adds grid information to robot and sets startin location and boundary
 
         Args:
             grid (Grid): Grid to spawn robot onto
             startPos (list): [x, y] starting position of robot (centerpoint)
-        """        
-        self.centerPoint = Point(startPos) 
+        """
+        self.centerPoint = Point(startPos)
         self.boundaryPolygon = self.centerPoint.buffer(self.radius)
         self.grid = grid
 
+    def move(self, action: RobotAction):
 
-    def move(self, directionPoint: Point, pRandom: float):
+        directionPoint = action.direction_vector
+
         # Determine if random move is taken
-        if np.random.binomial(n=1, p=pRandom) == 1:
+        if np.random.binomial(n=1, p=action.p_random) == 1:
             directionPoint = Point(
                 random.uniform(-5, 5),
                 random.uniform(-5, 5)
@@ -61,7 +68,7 @@ class Robot:
             # Determine death
             if movementPath.intersects(self.grid.death):
                 self.alive = False
-            
+
             # Update values
             self.centerPoint = newCenterPoint
             self.boundaryPolygon = self.centerPoint.buffer(self.radius)
@@ -75,10 +82,7 @@ class Robot:
             if self.batteryLevel <= 0:
                 self.alive = False
 
-            
-
-
-    def _valid_direction(self, directionPoint: Point, tol: float=1e-2) -> Point:
+    def _valid_direction(self, directionPoint: Point, tol: float = 1e-2) -> Point:
         newCenterPoint = Point(
             self.centerPoint.x + directionPoint.x,
             self.centerPoint.y + directionPoint.y
@@ -86,7 +90,7 @@ class Robot:
 
         movementPath = LineString([self.centerPoint, newCenterPoint])
 
-        validMovements = movementPath - self.grid.obstacles.buffer(self.radius-tol)
+        validMovements = movementPath - self.grid.obstacles.buffer(self.radius - tol)
 
         if validMovements.is_empty or self.centerPoint.distance(validMovements) > 1e-4:
             return Point(0, 0)
@@ -110,4 +114,3 @@ class Robot:
             newCenterPoint.x - self.centerPoint.x,
             newCenterPoint.y - self.centerPoint.y
         )
-
