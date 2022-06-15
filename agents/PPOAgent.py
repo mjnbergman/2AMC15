@@ -4,6 +4,11 @@ from continuous_environment import Grid, Robot, RobotAction, GymEnv
 import numpy as np
 import gym
 import tensorflow as tf
+import tensorflow_probability as tfp
+
+from tensorflow.keras import layers
+
+from collections import deque
 
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten, Convolution2D, Permute
@@ -36,31 +41,28 @@ class BallerAgent:
 
         # Next, we build our self.policy_model. We use the same self.policy_model that was described by Mnih et al. (2015).
         self.input_shape = (WINDOW_LENGTH,) + INPUT_SHAPE
-        self.policy_model = Sequential()
-        #   if K.image_dim_ordering() == 'tf':
-        # (width, height, channels)
-        self.policy_model.add(Permute((2, 3, 1), input_shape=self.input_shape))
-        #  elif K.image_dim_ordering() == 'th':
-        #      # (channels, width, height)
-        #      self.policy_model.add(Permute((1, 2, 3), input_shape=input_shape))
-        #  else:
-        #      raise RuntimeError('Unknown image_dim_ordering.')
-        self.policy_model.add(Convolution2D(32, (8, 8), strides=(4, 4)))
-        self.policy_model.add(Activation('relu'))
-        self.policy_model.add(Convolution2D(64, (4, 4), strides=(2, 2)))
-        self.policy_model.add(Activation('relu'))
-        self.policy_model.add(Convolution2D(64, (3, 3), strides=(1, 1)))
-        self.policy_model.add(Activation('relu'))
-        self.policy_model.add(Flatten())
-        self.policy_model.add(Dense(512))
-        self.policy_model.add(Activation('relu'))
-        self.policy_model.add(Dense(self.nb_actions))
-        self.policy_model.add(Activation('linear'))
-        self.policy_model.compile()
+
+        inputs = layers.Input(shape=self.input_shape)
+        conv1 = layers.Conv2D(8, 3)(inputs)
+        maxp1 = layers.MaxPooling2D(2)(conv1)
+        conv2 = layers.Conv2D(16, 2)(maxp1)
+        maxp2 = layers.MaxPooling2D(2)(conv2)
+        flat = layers.Flatten(maxp2)
+
+        actordense1 = layers.Dense(128, activation="tanh")(flat)
+        actordense2 = layers.Dense(64, activation="softplus")(actordense1)
+
+        criticdense1 = layers.Dense(128, activation="tanh")(flat)
+        criticdense2 = layers.Dense(64, activation="tanh")(criticdense1)
+
+        action = layers.Dense(2, activation="tanh")(1 + actordense2)
+        critic = layers.Dense(1, activation="tanh")(criticdense2)
+
+        self.policy_model = keras.Model(inputs=inputs, outputs=[action, critic])
 
         # Finally, we configure and compile our agent. You can use every built-in Keras optimizer and
         # even the metrics!
-        self.memory = SequentialMemory(limit=10000, window_length=WINDOW_LENGTH)
+        self.memory = deque()  # SequentialMemory(limit=10000, window_length=WINDOW_LENGTH)
         self.processor = RoombaProcessor()
 
         self.policy = LinearAnnealedPolicy(EpsGreedyQPolicy(), attr='eps', value_max=1., value_min=.1, value_test=.05,
@@ -75,7 +77,17 @@ class BallerAgent:
 
         self.discount_factor = 0.9
 
+        self.policy_learning_rate = 3e-4
+        self.value_function_learning_rate = 1e-3
+
+        self.model_train_iterations = 50
+
+        self.action_replay_length = 1000
+
     def train(self, nr_epochs, mini_batch_size, T, nr_actors):
+
+        policy_optimizer = keras.optimizers.Adam(learning_rate=self.policy_learning_rate)
+        value_optimizer = keras.optimizers.Adam(learning_rate=self.value_function_learning_rate)
 
         advantage_estimates = []
         value_diff_estimates = []
@@ -87,44 +99,74 @@ class BallerAgent:
             mini_batch_counter = 0
             mini_batch = []
             actor_episodes = []
-            for actor in range(nr_actors):
-                state = self.env.reset()
-                advantage_estimate = 0
-                value_diff_estimate = 0
-                episode = []
-                for time_step in range(T):
-                    action_probs, value_estimate = self.policy_model(state)
+            #  for actor in range(nr_actors):
+            state = self.env.reset()
+            advantage_estimate = 0
+            value_diff_estimate = 0
+            episode = []
+            for time_step in range(T):
+                action_probs, value_estimate = self.policy_model(state)
 
-                    state, reward, done, info = self.env.step(np.argmax(action_probs))
+                chosen_action = np.random.beta(action_probs[0], action_probs[1])
 
-                    _, next_value_estimate = self.policy_model(state)
+                state, reward, done, info = self.env.step(chosen_action)
 
-                    advantage_estimate += self.discount_factor ** time_step * \
-                                          (reward - value_estimate + self.discount_factor * next_value_estimate)
-                    value_diff_estimate += (advantage_estimate + value_estimate)
+                action_distribution = tfp.distributions.Beta(action_probs[0], action_probs[1])
 
-                    advantage_estimates.append(advantage_estimate)
-                    value_diff_estimates.append(value_diff_estimate ** 2)
+                self.memory.append(state, reward, done, value_estimate, chosen_action, action_distribution)
 
-                    episode.append((state, np.argmax(action_probs), value_estimate))
-                    mini_batch.append((advantage_estimate, value_diff_estimate, action_probs))
-                    mini_batch_counter += 1
+                if self.memory.size() > self.action_replay_length:
+                    self.memory.popleft()
 
-                    if mini_batch_counter > mini_batch_size:
-                        mini_batch_counter = 0
+                if done:
+                    break
 
-                        with tf.gradient_tape() as tape:
-                            ratio = self.policy_model(state) / action_probs
-                            clip_loss = tf.reduce_mean(np.min(ratio * advantage_estimates,
-                                                              tf.clip_by_value(ratio * advantage_estimates, 1 - epsilon,
-                                                                               1 + epsilon)))
-                            value_loss = tf.reduce_mean(value_diff_estimates)
-                            total_loss = clip_loss - value_loss
-                        tape.gradient(total_loss, self.policy_model.trainable_parameters)
+            state_buffer, reward_buffer, done_buffer, \
+            value_estimate_buffer, chosen_action, action_distribution = self._buffers_from_deque()
 
-                        advantage_estimates = []
-                        value_diff_estimates = []
+            for _ in range(self.model_train_iterations):
+                kl = self._train_model(state_buffer, reward_buffer, done_buffer, value_estimate_buffer, chosen_action,
+                                       action_distribution)
 
-                    if done:
-                        break
-                actor_episodes.append(episode)
+                if kl > 1.5 * target_kl:
+                    # Early Stopping
+                    break
+
+    def _buffers_from_deque(self):
+        tup_list = [list(x) for x in self.memory]
+        return tup_list[:, 0], tup_list[:, 1], tup_list[:, 2], tup_list[:, 3], tup_list[:, 4], tup_list[:, 5]
+
+    def _get_beta_log_probs(self, state, action):
+        beta_parameters, _ = self.policy_model(state)
+        beta_dist = tfp.distributions.Beta(beta_parameters[0], beta_parameters[1])
+        return beta_dist.log_prob(action)
+
+
+    def _train_model(self, state_buffer, reward_buffer, done_buffer, value_estimate_buffer, chosen_action,
+                                       action_distribution):
+        with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
+            ratio = tf.exp(
+                self._get_beta_log_probs(state_buffer) - action_distribution.log_prob(chosen_action)
+            )
+            min_advantage = tf.where(
+                advantage_buffer > 0,
+                (1 + clip_ratio) * advantage_buffer,
+                (1 - clip_ratio) * advantage_buffer,
+            )
+
+            policy_loss = -tf.reduce_mean(
+                tf.minimum(ratio * advantage_buffer, min_advantage)
+            )
+            value_loss = tf.reduce_mean((return_buffer - critic(observation_buffer)) ** 2)
+
+            total_loss = policy_loss + value_loss
+
+        policy_grads = tape.gradient(total_loss, self.policy_model.trainable_variables)
+        policy_optimizer.apply_gradients(zip(policy_grads, self.policy_model.trainable_variables))
+
+        kl = tf.reduce_mean(
+            logprobability_buffer
+            - logprobabilities(actor(observation_buffer), action_buffer)
+        )
+        kl = tf.reduce_sum(kl)
+        return kl
