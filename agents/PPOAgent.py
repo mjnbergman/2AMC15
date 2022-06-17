@@ -91,7 +91,7 @@ class BallerAgent:
 
         self.target_kl = 0.01
 
-        self.clip_ratio = 0.05
+        self.clip_ratio = 0.2
 
         self.policy_optimizer = tf.keras.optimizers.Adam(learning_rate=self.policy_learning_rate)
 
@@ -171,9 +171,9 @@ class BallerAgent:
                                        action_distribution,
                                        return_buffer)
 
-                if kl > 1.5 * self.target_kl:
+                #if kl > 1.5 * self.target_kl:
                     # Early Stopping
-                    break
+                #    break
 
     def _calculate_advantage_from_buffer(self, value_estimate_buffer, reward_buffer):
         advantage_buffer = []
@@ -206,17 +206,17 @@ class BallerAgent:
 
         dirx, diry = self._scale_direction_vector_to_beta(action.x, action.y)
 
-        return beta_dist_1.log_prob(dirx),  beta_dist_2.log_prob(diry)
+        return beta_dist_1.log_prob(dirx) + beta_dist_2.log_prob(diry)
 
     def _train_model(self, state_buffer, advantage_buffer, done_buffer, value_estimate_buffer, chosen_action,
                      action_distribution, return_buffer):
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
             ratios = []
             for step in range(len(state_buffer)):
-                ratios.append(tf.exp(
+                ratios.append(
+                    tf.exp(
                     self._get_beta_log_probs(state_buffer[step], chosen_action[step].direction_vector) - action_distribution[step]
                 ))
-
             min_advantage = tf.where(
                 advantage_buffer > 0,
                 (1 + self.clip_ratio) * advantage_buffer,
@@ -226,6 +226,9 @@ class BallerAgent:
             policy_loss = -tf.reduce_mean(
                 tf.minimum(ratios * advantage_buffer, min_advantage)
             )
+            print(min_advantage)
+            #print(advantage_buffer)
+            print(ratios)
             #print(state_buffer.shape)
             state_buffer = np.stack(state_buffer)
             state_buffer = state_buffer.reshape(state_buffer.shape[0], 84, 84, 1)
@@ -236,7 +239,7 @@ class BallerAgent:
             value_loss = tf.reduce_mean((return_buffer - value) ** 2)
 
             total_loss = policy_loss + value_loss
-
+            print("Losses: ", total_loss, policy_loss, value_loss)
         policy_grads = tape.gradient(total_loss, self.policy_model.trainable_variables)
         self.policy_optimizer.apply_gradients(zip(policy_grads, self.policy_model.trainable_variables))
 

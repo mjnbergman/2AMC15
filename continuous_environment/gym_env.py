@@ -134,7 +134,7 @@ class GymEnv(Env):
         reward_vector = [robot.areaCleaned * int(Reward.REWARD_PER_AREA)
                          + int(not robot.no_wall) * int(Reward.WALL_PENALTY)
                          + int(robot.death_tile) * int(Reward.DEATH_PENALTY) for robot in self.robots]
-        print("Reward ", reward_vector[0], " cleaned ", self.robots[0].areaCleaned, int(self.robots[0].alive))
+        print("Reward ", reward_vector, " cleaned ", self.robots[0].areaCleaned, int(self.robots[0].alive))
 
         # Create figure
         # Plot room background
