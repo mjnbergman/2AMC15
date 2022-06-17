@@ -132,7 +132,7 @@ class BallerAgent:
                 chosen_action_x = (np.random.beta(action_probs[0][0], action_probs[0][1]))
                 chosen_action_y = (np.random.beta(action_probs[0][2], action_probs[0][3]))
 
-                print("Baller moving to (", chosen_action_x, ", ", chosen_action_y, ")")
+               # print("Baller moving to (", chosen_action_x, ", ", chosen_action_y, ")")
 
                 chosen_action = RobotAction([self._scale_beta_to_direction_vector(chosen_action_x, chosen_action_y)])
 
@@ -141,7 +141,7 @@ class BallerAgent:
                 state = self.processor.process_observation(state)
                 reward = self.processor.process_reward(reward)
 
-                print("Greyscale values: ", np.unique(state))
+                #print("Greyscale values: ", np.unique(state))
 
                 episodic_reward += reward
 
@@ -150,6 +150,8 @@ class BallerAgent:
 
                 sampled_log_prob = action_distribution_1.log_prob(chosen_action_x) + action_distribution_2.log_prob(
                     chosen_action_y)
+
+                print("SAMPLED PROBABILITY: ", sampled_log_prob)
 
                 self.memory.append((state, reward, done, value_estimate, chosen_action, sampled_log_prob))
 
@@ -162,6 +164,7 @@ class BallerAgent:
             print("EPISODIC REWARD: ", episodic_reward)
             state_buffer, reward_buffer, done_buffer, \
             value_estimate_buffer, chosen_action, action_distribution = self._buffers_from_deque()
+            print(action_distribution)
             advantage_buffer = self._calculate_advantage_from_buffer(value_estimate_buffer, reward_buffer)
             return_buffer = self._calculate_return_from_buffer(reward_buffer)
 
@@ -196,7 +199,7 @@ class BallerAgent:
 
     def _buffers_from_deque(self):
         tup_list = np.array([list(x) for x in self.memory])
-        return tup_list[:, 0], tup_list[:, 1], tup_list[:, 2], tup_list[:, 3], tup_list[:, 4], tup_list[:, 5]
+        return tup_list[:, 0], tup_list[:, 1], tup_list[:, 2], tup_list[:, 3], tup_list[:, 4], np.vstack(tup_list[:, 5])
 
     def _get_beta_log_probs(self, state, action):
         beta_parameters, _ = self.policy_model(state)
@@ -213,6 +216,10 @@ class BallerAgent:
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
             ratios = []
             for step in range(len(state_buffer)):
+                print("FIRST TERM")
+                print( self._get_beta_log_probs(state_buffer[step], chosen_action[step].direction_vector))
+                print("SECOND TERM________________________________________")
+                print(action_distribution[step])
                 ratios.append(
                     tf.exp(
                     self._get_beta_log_probs(state_buffer[step], chosen_action[step].direction_vector) - action_distribution[step]
@@ -223,6 +230,9 @@ class BallerAgent:
                 (1 - self.clip_ratio) * advantage_buffer,
             )
             ratios = np.array(ratios)
+            ratios = ratios[~np.isnan(ratios)]
+            #advantage_buffer = advantage_buffer[~np.isnan(advantage_buffer)]
+            #min_advantage = min_advantage[~np.isnan(min_advantage)]
             policy_loss = -tf.reduce_mean(
                 tf.minimum(ratios * advantage_buffer, min_advantage)
             )
