@@ -47,8 +47,8 @@ class GymEnv(Env):
         #                               dtype=np.uint8)
         self.action_space = spaces.Discrete(4)
         DPI = 10
-        self.fig = plt.figure(figsize=(256 / DPI, 256 / DPI), dpi=DPI)
-        self.axes = self.fig.add_axes([0., 0., 1., 1.])
+        self.fig = plt.figure(figsize=(1280 / DPI, 756 / DPI), dpi=DPI)
+        self.axes = self.fig.add_subplot(121)
 
         # Remove borders
         self.axes.set_xticklabels([])
@@ -57,6 +57,9 @@ class GymEnv(Env):
         self.axes.set_yticks([])
         self.axes.margins(x=0, y=0)
 
+        #self.reward_fig = plt.figure(figsize=(1024 / DPI, 756 / DPI), dpi=DPI)
+        self.reward_axes = self.fig.add_subplot(122)
+        self.reward_tally = []
 
         self.reset()
 
@@ -66,11 +69,19 @@ class GymEnv(Env):
 
 
     def render(self):
-
+        plt.figure(1)
         plt.draw()
         plt.pause(0.1)
 
+        if len(self.reward_tally) > 0:
+            #plt.figure(2)
+            running_average = np.convolve(self.reward_tally, np.ones(5) / 5, mode='valid')
+            plt.plot(range(len(running_average)), running_average)
+            #self.reward_fig.show()
+            plt.pause(0.001)
+
     def reset(self):
+        plt.figure(1)
         print("RESET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         self.obstacles = GeometryCollection(
             parse_roomsize(self.config["roomsize"]) + \
@@ -124,6 +135,7 @@ class GymEnv(Env):
         return image
 
     def step(self, actions):
+        plt.figure(1)
         # Move robots
         for i, robot in enumerate(self.robots):
             print(f"Robot {robot.id} battery: {robot.batteryLevel}")
@@ -175,5 +187,7 @@ class GymEnv(Env):
 
         print(np.all(~np.array(alive_vector)))
         print(alive_vector)
+
+        self.reward_tally.append(np.sum(reward_vector))
 
         return image, np.sum(reward_vector), np.all(~np.array(alive_vector)), {}

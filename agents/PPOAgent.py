@@ -33,7 +33,7 @@ class AdditionLayer(tf.keras.layers.Layer):
 
 
 class BallerAgent:
-    def __init__(self):
+    def __init__(self, DRAW, SAVE, LOAD):
 
         # Get the environment and extract the number of actions.
         self.env = GymEnv(configFile="example-env.json",
@@ -45,7 +45,10 @@ class BallerAgent:
                               [1, 1],
                               #        [2, 2]
                           ],
-                          save=False)
+                          save=SAVE)
+        self.SAVE = SAVE
+        self.DRAW = DRAW
+        self.LOAD = LOAD
 
         self.nb_actions = self.env.action_space.n
 
@@ -87,15 +90,15 @@ class BallerAgent:
         self.checkpoint_weights_filename = 'ppo_weights.h5f_weights_{step}.h5f'
         self.log_filename = 'ppo_log.json'
 
-        self.callbacks = [ModelIntervalCheckpoint(self.checkpoint_weights_filename, interval=250000)]
-        self.callbacks += [FileLogger(self.log_filename, interval=100)]
+        if self.LOAD:
+            self.policy_model = tf.keras.models.load_model('ballerboi')
 
         self.discount_factor = 0.9
 
         self.policy_learning_rate = 3e-4
         self.value_function_learning_rate = 1e-3
 
-        self.model_train_iterations = 50
+        self.model_train_iterations = 5
 
         self.action_replay_length = 1000
 
@@ -109,7 +112,7 @@ class BallerAgent:
         return (direction_x - 1 / 2) * 8, (direction_y - 1 / 2) * 8
 
     def _scale_direction_vector_to_beta(self, direction_x, direction_y):
-        return (direction_x / 8) * 1 / 2, (direction_y / 8) + 1 / 2
+        return (direction_x / 8) + 1 / 2, (direction_y / 8) + 1 / 2
 
     def train(self, nr_epochs, T):
 
@@ -134,7 +137,10 @@ class BallerAgent:
             episodic_reward = 0
             for time_step in range(T):
                 # print(state.shape)
-                self.env.render()
+
+                if self.DRAW:
+                    self.env.render()
+
                 action_probs, value_estimate = self.policy_model(state)
 
                 action_probs += 1
@@ -162,7 +168,7 @@ class BallerAgent:
                 sampled_log_prob = action_distribution_1.log_prob(chosen_action_x) + action_distribution_2.log_prob(
                     chosen_action_y)
 
-                print("SAMPLED PROBABILITY: ", sampled_log_prob)
+                #print("SAMPLED PROBABILITY: ", sampled_log_prob)
 
                 self.memory.append((state, reward, done, value_estimate, chosen_action, sampled_log_prob))
 
@@ -172,7 +178,7 @@ class BallerAgent:
                 if done:
                     break
             reward_tally.append(episodic_reward)
-            print("EPISODIC REWARD: ", episodic_reward)
+            #print("EPISODIC REWARD: ", episodic_reward)
             state_buffer, reward_buffer, done_buffer, \
             value_estimate_buffer, chosen_action, action_distribution = self._buffers_from_deque()
             print(action_distribution)
@@ -188,6 +194,7 @@ class BallerAgent:
                 # if kl > 1.5 * self.target_kl:
                 # Early Stopping
                 #    break
+            self.policy_model.save("ballerboi")
 
     def _calculate_advantage_from_buffer(self, value_estimate_buffer, reward_buffer):
         advantage_buffer = []
@@ -212,16 +219,27 @@ class BallerAgent:
         tup_list = np.array([list(x) for x in self.memory])
         return tup_list[:, 0], tup_list[:, 1], tup_list[:, 2], tup_list[:, 3], tup_list[:, 4], np.vstack(tup_list[:, 5])
 
-    @tf.function
     def _get_beta_log_probs(self, state, action):
+       # print("In conversion")
         beta_parameters, _ = self.policy_model(state)
+
+        beta_parameters += 1
+
+      #  print("Parameters ", beta_parameters)
 
         beta_dist_1 = tfp.distributions.Beta(beta_parameters[0][0], beta_parameters[0][1])
         beta_dist_2 = tfp.distributions.Beta(beta_parameters[0][2], beta_parameters[0][3])
 
         dirx, diry = self._scale_direction_vector_to_beta(action[0], action[1])
 
-        return beta_dist_1.log_prob(dirx) + beta_dist_2.log_prob(diry)
+     #   print("Scaled directions: ", dirx, diry)
+
+        lp1 = beta_dist_1.log_prob(dirx)
+        lp2 = beta_dist_2.log_prob(diry)
+
+    #    print("LPs ", lp1, lp2)
+
+        return lp1 + lp2
 
     def _train_model(self, state_buffer, advantage_buffer, done_buffer, value_estimate_buffer, chosen_action,
                      action_distribution, return_buffer):
@@ -229,16 +247,20 @@ class BallerAgent:
             ratios = tf.TensorArray(tf.float32, size=0, dynamic_size=True, clear_after_read=False)
             print(ratios)
             for step in tf.range(len(state_buffer)):
-                print("CONCATTING")
+        #        print("CONCATTING")
                 # print("FIRST TERM")
                 # print( self._get_beta_log_probs(state_buffer[step], chosen_action[step].direction_vector))
                 # print("SECOND TERM________________________________________")
                 # print(action_distribution[step])
-                direction_tensor = tf.constant([chosen_action[step].direction_vector.x, chosen_action[step].direction_vector.y], dtype=tf.dtypes.float32)
-                ratios = ratios.write(step, tf.exp(
+                direction_tensor = tf.constant([chosen_action[step].direction_vector.x,
+                                                         chosen_action[step].direction_vector.y],
+                    dtype=tf.dtypes.float32)
+                temporary_ratio = tf.exp(
                         self._get_beta_log_probs(state_buffer[step], direction_tensor) -
                         action_distribution[step]
-                    ))
+                    )
+        #        print("RATIO ", temporary_ratio, action_distribution[step], direction_tensor)
+                ratios = ratios.write(step, temporary_ratio)
             min_advantage = tf.where(
                 advantage_buffer > 0,
                 (1 + self.clip_ratio) * advantage_buffer,
@@ -253,9 +275,9 @@ class BallerAgent:
             # advantage_buffer = advantage_buffer[~np.isnan(advantage_buffer)]
             # min_advantage = min_advantage[~np.isnan(min_advantage)]
 
-            print(min_advantage)
+         #   print(min_advantage)
             # print(advantage_buffer)
-            print(ratios)
+      #      print(ratios)
             # print(state_buffer.shape)
             state_buffer = np.stack(state_buffer)
             state_buffer = state_buffer.reshape(state_buffer.shape[0], 84, 84, 1)
