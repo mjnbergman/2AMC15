@@ -2,17 +2,21 @@ from PIL import Image
 import numpy as np
 from rl.core import Processor
 
-INPUT_SHAPE = (84, 84)
+INPUT_SHAPE = (84, 84, 1)
+INPUT_SHAPE_FIXED = (84, 84)
+INPUT_SHAPE_BATCH = (1, 84, 84, 1)
 WINDOW_LENGTH = 4
 
 
 class RoombaProcessor(Processor):
     def process_observation(self, observation):
         assert observation.ndim == 3  # (height, width, channel)
+        print(observation)
         img = Image.fromarray(observation)
-        img = img.resize(INPUT_SHAPE).convert('L')  # resize and convert to grayscale
-        processed_observation = np.array(img)
-        assert processed_observation.shape == INPUT_SHAPE
+        img = img.resize(INPUT_SHAPE_FIXED).convert('L')  # resize and convert to grayscale
+        processed_observation = np.array(img).reshape(INPUT_SHAPE_BATCH)
+        print(processed_observation.reshape((INPUT_SHAPE_BATCH)))
+        assert processed_observation.shape == INPUT_SHAPE_BATCH
         return processed_observation.astype('uint8')  # saves storage in experience memory
 
     def process_state_batch(self, batch):

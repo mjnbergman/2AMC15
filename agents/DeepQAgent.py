@@ -4,9 +4,11 @@ from continuous_environment import Grid, Robot, RobotAction, GymEnv
 import numpy as np
 import gym
 
-from keras.models import Sequential
-from keras.layers import Dense, Activation, Flatten, Convolution2D, Permute
-from keras.optimizers import Adam
+import tensorflow
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Activation, Flatten, Convolution2D, Permute
+from tensorflow.keras.optimizers import Adam
 import keras.backend as K
 
 from rl.agents.dqn import DQNAgent

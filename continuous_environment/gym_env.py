@@ -126,8 +126,8 @@ class GymEnv(Env):
         # Move robots
         for i, robot in enumerate(self.robots):
             print(f"Robot {robot.id} battery: {robot.batteryLevel}")
-            print("Moving ", i, action_mapping[actions]) #actions[i].direction_vector
-            robot.move(action_mapping[actions])
+            print("Moving ", i, actions) #actions[i].direction_vector
+            robot.move(actions)
 
         alive_vector = [robot.alive for robot in self.robots]
         reward_vector = [robot.areaCleaned * int(Reward.REWARD_PER_AREA) for robot in self.robots]

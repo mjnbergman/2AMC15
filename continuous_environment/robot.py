@@ -44,7 +44,7 @@ class Robot:
 
     def move(self, action):
 
-        directionPoint = Point(action) #.direction_vector
+        directionPoint = Point(action.direction_vector) #.direction_vector
 
         # Determine if random move is taken
      #   if np.random.binomial(n=1, p=action.p_random) == 1:
