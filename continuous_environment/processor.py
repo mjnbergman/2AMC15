@@ -27,4 +27,5 @@ class RoombaProcessor(Processor):
         return processed_batch
 
     def process_reward(self, reward):
-        return np.clip(reward, -1., 1.)
+        #return np.clip(reward, -1., 1.)
+        return reward

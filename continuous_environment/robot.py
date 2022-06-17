@@ -2,6 +2,8 @@ from shapely.geometry import Point, LineString, GeometryCollection, MultiLineStr
 from shapely.geometry.base import BaseMultipartGeometry
 import numpy as np
 import random
+from scipy.spatial import distance
+
 
 from .gym_env import GymEnv
 
@@ -29,6 +31,8 @@ class Robot:
         self.color = color
         self.batteryLevel = batteryLevel
         self.alive = True
+        self.death_tile = False
+        self.no_wall = True
         self.areaCleaned = 0
 
     def spawn(self, grid, startPos: list):
@@ -41,10 +45,14 @@ class Robot:
         self.centerPoint = Point(startPos)
         self.boundaryPolygon = self.centerPoint.buffer(self.radius)
         self.grid = grid
+        self.alive = True
+        self.no_wall = True
+        self.death_tile = False
 
     def move(self, action):
 
         directionPoint = Point(action.direction_vector) #.direction_vector
+        self.areaCleaned = 0
 
         # Determine if random move is taken
      #   if np.random.binomial(n=1, p=action.p_random) == 1:
@@ -54,10 +62,17 @@ class Robot:
      #       )
 
         # Determine valid direction and new location
-        directionPoint = self._valid_direction(directionPoint)
+        newDirectionPoint = self._valid_direction(directionPoint)
+
+        self.no_wall = False
+        self.death_tile = False
+
+        if newDirectionPoint.x == directionPoint.x and newDirectionPoint.y == directionPoint.y:
+            self.no_wall = True
+
         newCenterPoint = Point(
-            self.centerPoint.x + directionPoint.x,
-            self.centerPoint.y + directionPoint.y
+            self.centerPoint.x + newDirectionPoint.x,
+            self.centerPoint.y + newDirectionPoint.y
         )
         movementLine = LineString([self.centerPoint, newCenterPoint])
         movementPath = movementLine.buffer(self.radius)
@@ -68,6 +83,7 @@ class Robot:
             # Determine death
             if movementPath.intersects(self.grid.death):
                 self.alive = False
+                self.death_tile = True
 
             # Update values
             self.centerPoint = newCenterPoint
@@ -78,7 +94,7 @@ class Robot:
             self.areaCleaned += (oldDirtyArea - newDirtyArea)
 
             # Update battery
-            self.batteryLevel = max(0, self.batteryLevel - movementLine.length*3)
+            self.batteryLevel = max(0, self.batteryLevel - distance.euclidean(directionPoint.x, directionPoint.y))
             if self.batteryLevel <= 0:
                 self.alive = False
 

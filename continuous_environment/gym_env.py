@@ -18,7 +18,8 @@ action_mapping = {0: [0, 1], 1: [1, 0], 2: [0, -1], 3: [-1, 0]}
 class Reward(IntEnum):
     REWARD_PER_AREA = 1,
     TIME_PENALTY = -1,
-    DEATH_PENALTY = -1
+    DEATH_PENALTY = -100,
+    WALL_PENALTY = -5
 
 
 class GymEnv(Env):
@@ -130,7 +131,10 @@ class GymEnv(Env):
             robot.move(actions)
 
         alive_vector = [robot.alive for robot in self.robots]
-        reward_vector = [robot.areaCleaned * int(Reward.REWARD_PER_AREA) for robot in self.robots]
+        reward_vector = [robot.areaCleaned * int(Reward.REWARD_PER_AREA)
+                         + int(not robot.no_wall) * int(Reward.WALL_PENALTY)
+                         + int(robot.death_tile) * int(Reward.DEATH_PENALTY) for robot in self.robots]
+        print("Reward ", reward_vector[0], " cleaned ", self.robots[0].areaCleaned, int(self.robots[0].alive))
 
         # Create figure
         # Plot room background

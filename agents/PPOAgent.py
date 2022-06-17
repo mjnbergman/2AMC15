@@ -95,10 +95,18 @@ class BallerAgent:
 
         self.policy_optimizer = tf.keras.optimizers.Adam(learning_rate=self.policy_learning_rate)
 
+    def _scale_beta_to_direction_vector(self, direction_x, direction_y):
+        return (direction_x - 1/2) * 8, (direction_y - 1/2) * 8
+
+    def _scale_direction_vector_to_beta(self, direction_x, direction_y):
+        return (direction_x / 8) * 1/2, (direction_y / 8) + 1/2
+
     def train(self, nr_epochs, T):
 
         advantage_estimates = []
         value_diff_estimates = []
+
+        reward_tally = []
 
         epsilon = 0.05
 
@@ -113,10 +121,12 @@ class BallerAgent:
             advantage_estimate = 0
             value_diff_estimate = 0
             episode = []
+            episodic_reward = 0
             for time_step in range(T):
                # print(state.shape)
                 self.env.render()
                 action_probs, value_estimate = self.policy_model(state)
+
                # print(action_probs)
 
                 chosen_action_x = (np.random.beta(action_probs[0][0], action_probs[0][1]))
@@ -124,12 +134,16 @@ class BallerAgent:
 
                 print("Baller moving to (", chosen_action_x, ", ", chosen_action_y, ")")
 
-                chosen_action = RobotAction([(chosen_action_x - 1/2) * 8, (chosen_action_y - 1/2) * 8])
+                chosen_action = RobotAction([self._scale_beta_to_direction_vector(chosen_action_x, chosen_action_y)])
 
                 state, reward, done, info = self.env.step(chosen_action)
 
                 state = self.processor.process_observation(state)
                 reward = self.processor.process_reward(reward)
+
+                print("Greyscale values: ", np.unique(state))
+
+                episodic_reward += reward
 
                 action_distribution_1 = tfp.distributions.Beta(action_probs[0][0], action_probs[0][1])
                 action_distribution_2 = tfp.distributions.Beta(action_probs[0][2], action_probs[0][3])
@@ -144,7 +158,8 @@ class BallerAgent:
 
                 if done:
                     break
-
+            reward_tally.append(episodic_reward)
+            print("EPISODIC REWARD: ", episodic_reward)
             state_buffer, reward_buffer, done_buffer, \
             value_estimate_buffer, chosen_action, action_distribution = self._buffers_from_deque()
             advantage_buffer = self._calculate_advantage_from_buffer(value_estimate_buffer, reward_buffer)
@@ -189,7 +204,9 @@ class BallerAgent:
         beta_dist_1 = tfp.distributions.Beta(beta_parameters[0][0], beta_parameters[0][1])
         beta_dist_2 = tfp.distributions.Beta(beta_parameters[0][2], beta_parameters[0][3])
 
-        return beta_dist_1.log_prob(action.x/8 + 1/2) + beta_dist_2.log_prob(action.y/8 + 1/2)
+        dirx, diry = self._scale_direction_vector_to_beta(action.x, action.y)
+
+        return beta_dist_1.log_prob(dirx),  beta_dist_2.log_prob(diry)
 
     def _train_model(self, state_buffer, advantage_buffer, done_buffer, value_estimate_buffer, chosen_action,
                      action_distribution, return_buffer):
