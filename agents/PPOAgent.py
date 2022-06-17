@@ -24,6 +24,14 @@ from rl.core import Processor
 from rl.callbacks import FileLogger, ModelIntervalCheckpoint
 
 
+class AdditionLayer(tf.keras.layers.Layer):
+    def __init__(self, units=32, input_dim=32):
+        super(AdditionLayer, self).__init__()
+
+    def call(self, inputs):
+        return inputs + 1
+
+
 class BallerAgent:
     def __init__(self):
 
@@ -43,6 +51,8 @@ class BallerAgent:
 
         self.input_shape = INPUT_SHAPE
 
+        tf.compat.v1.enable_eager_execution()
+
         inputs = layers.Input(shape=self.input_shape)
         conv1 = layers.Conv2D(8, 3)(inputs)
         maxp1 = layers.MaxPooling2D(2)(conv1)
@@ -51,22 +61,22 @@ class BallerAgent:
         flat = layers.Flatten()(maxp2)
 
         actordense1 = layers.Dense(128, activation="tanh")(flat)
-        actordense2 = layers.Dense(64, activation="softplus")(actordense1)
+        actordense2 = layers.Dense(64, activation="tanh")(actordense1)
 
         criticdense1 = layers.Dense(128, activation="tanh")(flat)
         criticdense2 = layers.Dense(64, activation="tanh")(criticdense1)
 
-        action = layers.Dense(4, activation="tanh")(actordense2)
+        action = layers.Dense(4, activation="softplus")(actordense2)
 
-        scaled_action = layers.Lambda(lambda x: x + 1)(action)
+        # scaled_action = AdditionLayer()(action)
 
-        #actor = layers.Dense(4, activation="relu")(scaled_action)
+        # actor = layers.Dense(4, activation="relu")(scaled_action)
         critic = layers.Dense(1, activation="tanh")(criticdense2)
 
-        self.policy_model = tf.keras.Model(inputs=inputs, outputs=[scaled_action, critic])
+        self.policy_model = tf.keras.Model(inputs=inputs, outputs=[action, critic])
 
         print(self.policy_model.summary())
-        plot_model(self.policy_model, "my_first_model_with_shape_info.png", show_shapes=True)
+        # plot_model(self.policy_model, "my_first_model_with_shape_info.png", show_shapes=True)
 
         # Finally, we configure and compile our agent. You can use every built-in Keras optimizer and
         # even the metrics!
@@ -96,10 +106,10 @@ class BallerAgent:
         self.policy_optimizer = tf.keras.optimizers.Adam(learning_rate=self.policy_learning_rate)
 
     def _scale_beta_to_direction_vector(self, direction_x, direction_y):
-        return (direction_x - 1/2) * 8, (direction_y - 1/2) * 8
+        return (direction_x - 1 / 2) * 8, (direction_y - 1 / 2) * 8
 
     def _scale_direction_vector_to_beta(self, direction_x, direction_y):
-        return (direction_x / 8) * 1/2, (direction_y / 8) + 1/2
+        return (direction_x / 8) * 1 / 2, (direction_y / 8) + 1 / 2
 
     def train(self, nr_epochs, T):
 
@@ -123,30 +133,31 @@ class BallerAgent:
             episode = []
             episodic_reward = 0
             for time_step in range(T):
-               # print(state.shape)
+                # print(state.shape)
                 self.env.render()
                 action_probs, value_estimate = self.policy_model(state)
 
-               # print(action_probs)
+                action_probs += 1
 
-                chosen_action_x = (np.random.beta(action_probs[0][0], action_probs[0][1]))
-                chosen_action_y = (np.random.beta(action_probs[0][2], action_probs[0][3]))
+                action_distribution_1 = tfp.distributions.Beta(action_probs[0][0], action_probs[0][1])
+                action_distribution_2 = tfp.distributions.Beta(action_probs[0][2], action_probs[0][3])
 
-               # print("Baller moving to (", chosen_action_x, ", ", chosen_action_y, ")")
+                chosen_action_x = action_distribution_1.sample()
+                chosen_action_y = action_distribution_2.sample()
 
-                chosen_action = RobotAction([self._scale_beta_to_direction_vector(chosen_action_x, chosen_action_y)])
+                # print("Baller moving to (", chosen_action_x, ", ", chosen_action_y, ")")
+
+                chosen_action = RobotAction(
+                    [self._scale_beta_to_direction_vector(chosen_action_x.numpy(), chosen_action_y.numpy())])
 
                 state, reward, done, info = self.env.step(chosen_action)
 
                 state = self.processor.process_observation(state)
                 reward = self.processor.process_reward(reward)
 
-                #print("Greyscale values: ", np.unique(state))
+                # print("Greyscale values: ", np.unique(state))
 
                 episodic_reward += reward
-
-                action_distribution_1 = tfp.distributions.Beta(action_probs[0][0], action_probs[0][1])
-                action_distribution_2 = tfp.distributions.Beta(action_probs[0][2], action_probs[0][3])
 
                 sampled_log_prob = action_distribution_1.log_prob(chosen_action_x) + action_distribution_2.log_prob(
                     chosen_action_y)
@@ -174,8 +185,8 @@ class BallerAgent:
                                        action_distribution,
                                        return_buffer)
 
-                #if kl > 1.5 * self.target_kl:
-                    # Early Stopping
+                # if kl > 1.5 * self.target_kl:
+                # Early Stopping
                 #    break
 
     def _calculate_advantage_from_buffer(self, value_estimate_buffer, reward_buffer):
@@ -201,51 +212,64 @@ class BallerAgent:
         tup_list = np.array([list(x) for x in self.memory])
         return tup_list[:, 0], tup_list[:, 1], tup_list[:, 2], tup_list[:, 3], tup_list[:, 4], np.vstack(tup_list[:, 5])
 
+    @tf.function
     def _get_beta_log_probs(self, state, action):
         beta_parameters, _ = self.policy_model(state)
 
         beta_dist_1 = tfp.distributions.Beta(beta_parameters[0][0], beta_parameters[0][1])
         beta_dist_2 = tfp.distributions.Beta(beta_parameters[0][2], beta_parameters[0][3])
 
-        dirx, diry = self._scale_direction_vector_to_beta(action.x, action.y)
+        dirx, diry = self._scale_direction_vector_to_beta(action[0], action[1])
 
         return beta_dist_1.log_prob(dirx) + beta_dist_2.log_prob(diry)
 
     def _train_model(self, state_buffer, advantage_buffer, done_buffer, value_estimate_buffer, chosen_action,
                      action_distribution, return_buffer):
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
-            ratios = []
-            for step in range(len(state_buffer)):
-                print("FIRST TERM")
-                print( self._get_beta_log_probs(state_buffer[step], chosen_action[step].direction_vector))
-                print("SECOND TERM________________________________________")
-                print(action_distribution[step])
-                ratios.append(
-                    tf.exp(
-                    self._get_beta_log_probs(state_buffer[step], chosen_action[step].direction_vector) - action_distribution[step]
-                ))
+            ratios = tf.TensorArray(tf.float32, size=0, dynamic_size=True, clear_after_read=False)
+            print(ratios)
+            for step in tf.range(len(state_buffer)):
+                print("CONCATTING")
+                # print("FIRST TERM")
+                # print( self._get_beta_log_probs(state_buffer[step], chosen_action[step].direction_vector))
+                # print("SECOND TERM________________________________________")
+                # print(action_distribution[step])
+                direction_tensor = tf.constant([chosen_action[step].direction_vector.x, chosen_action[step].direction_vector.y], dtype=tf.dtypes.float32)
+                ratios = ratios.write(step, tf.exp(
+                        self._get_beta_log_probs(state_buffer[step], direction_tensor) -
+                        action_distribution[step]
+                    ))
             min_advantage = tf.where(
                 advantage_buffer > 0,
                 (1 + self.clip_ratio) * advantage_buffer,
                 (1 - self.clip_ratio) * advantage_buffer,
             )
-            ratios = np.array(ratios)
-            ratios = ratios[~np.isnan(ratios)]
-            #advantage_buffer = advantage_buffer[~np.isnan(advantage_buffer)]
-            #min_advantage = min_advantage[~np.isnan(min_advantage)]
+
+            ratios = ratios.stack()
+            ratios = tf.clip_by_value(ratios, -1e2, 1e2)
+
+            #ratios = np.array(ratios)
+            #ratios = ratios[~np.isnan(ratios)]
+            # advantage_buffer = advantage_buffer[~np.isnan(advantage_buffer)]
+            # min_advantage = min_advantage[~np.isnan(min_advantage)]
+
+            print(min_advantage)
+            # print(advantage_buffer)
+            print(ratios)
+            # print(state_buffer.shape)
+            state_buffer = np.stack(state_buffer)
+            state_buffer = state_buffer.reshape(state_buffer.shape[0], 84, 84, 1)
+
+            #ratios, _ = self.policy_model(state_buffer)
+
             policy_loss = -tf.reduce_mean(
                 tf.minimum(ratios * advantage_buffer, min_advantage)
             )
-            print(min_advantage)
-            #print(advantage_buffer)
-            print(ratios)
-            #print(state_buffer.shape)
-            state_buffer = np.stack(state_buffer)
-            state_buffer = state_buffer.reshape(state_buffer.shape[0], 84, 84, 1)
-          #  print(state_buffer)
+
+            #  print(state_buffer)
             _, value = self.policy_model(state_buffer)
-          #  print("Value ", value)
-          #  print(return_buffer)
+            #  print("Value ", value)
+            #  print(return_buffer)
             value_loss = tf.reduce_mean((return_buffer - value) ** 2)
 
             total_loss = policy_loss + value_loss
