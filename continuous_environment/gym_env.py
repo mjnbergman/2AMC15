@@ -67,7 +67,7 @@ class GymEnv(Env):
     def render(self):
 
         plt.draw()
-        plt.pause(1)
+        plt.pause(0.1)
 
     def reset(self):
         print("RESET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")

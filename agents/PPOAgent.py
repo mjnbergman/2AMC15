@@ -37,7 +37,7 @@ class BallerAgent:
                               [1, 1],
                               #        [2, 2]
                           ],
-                          save=True)
+                          save=False)
 
         self.nb_actions = self.env.action_space.n
 
@@ -114,14 +114,17 @@ class BallerAgent:
             value_diff_estimate = 0
             episode = []
             for time_step in range(T):
-                print(state.shape)
+               # print(state.shape)
+                self.env.render()
                 action_probs, value_estimate = self.policy_model(state)
-                print(action_probs)
+               # print(action_probs)
 
-                chosen_action_x = np.random.beta(action_probs[0][0], action_probs[0][1])
-                chosen_action_y = np.random.beta(action_probs[0][2], action_probs[0][3])
+                chosen_action_x = (np.random.beta(action_probs[0][0], action_probs[0][1]))
+                chosen_action_y = (np.random.beta(action_probs[0][2], action_probs[0][3]))
 
-                chosen_action = RobotAction([chosen_action_x, chosen_action_y])
+                print("Baller moving to (", chosen_action_x, ", ", chosen_action_y, ")")
+
+                chosen_action = RobotAction([(chosen_action_x - 1/2) * 8, (chosen_action_y - 1/2) * 8])
 
                 state, reward, done, info = self.env.step(chosen_action)
 
@@ -186,7 +189,7 @@ class BallerAgent:
         beta_dist_1 = tfp.distributions.Beta(beta_parameters[0][0], beta_parameters[0][1])
         beta_dist_2 = tfp.distributions.Beta(beta_parameters[0][2], beta_parameters[0][3])
 
-        return beta_dist_1.log_prob(action.x) + beta_dist_2.log_prob(action.y)
+        return beta_dist_1.log_prob(action.x/8 + 1/2) + beta_dist_2.log_prob(action.y/8 + 1/2)
 
     def _train_model(self, state_buffer, advantage_buffer, done_buffer, value_estimate_buffer, chosen_action,
                      action_distribution, return_buffer):
@@ -209,10 +212,10 @@ class BallerAgent:
             #print(state_buffer.shape)
             state_buffer = np.stack(state_buffer)
             state_buffer = state_buffer.reshape(state_buffer.shape[0], 84, 84, 1)
-            print(state_buffer)
+          #  print(state_buffer)
             _, value = self.policy_model(state_buffer)
-            print("Value ", value)
-            print(return_buffer)
+          #  print("Value ", value)
+          #  print(return_buffer)
             value_loss = tf.reduce_mean((return_buffer - value) ** 2)
 
             total_loss = policy_loss + value_loss

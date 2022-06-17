@@ -10,5 +10,5 @@ DRAW = True
 SAVE = True
 
 agent = BallerAgent()
-agent.train(10, 100)
+agent.train(1000, 100)
 

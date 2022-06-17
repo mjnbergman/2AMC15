@@ -78,7 +78,7 @@ class Robot:
             self.areaCleaned += (oldDirtyArea - newDirtyArea)
 
             # Update battery
-            self.batteryLevel = max(0, self.batteryLevel - movementLine.length)
+            self.batteryLevel = max(0, self.batteryLevel - movementLine.length*3)
             if self.batteryLevel <= 0:
                 self.alive = False
 
