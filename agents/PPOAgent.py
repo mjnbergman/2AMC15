@@ -38,11 +38,11 @@ class BallerAgent:
         # Get the environment and extract the number of actions.
         self.env = GymEnv(configFile="example-env.json",
                           robots=[
-                              Robot(id=1, radius=0.5, color="blue", batteryLevel=100),
+                              Robot(id=1, radius=0.1, color="blue", batteryLevel=100),
                               #     Robot(id=2, radius=1, color="green", batteryLevel=100)
                           ],
                           startingPos=[
-                              [1, 1],
+                              [8, 5],
                               #        [2, 2]
                           ],
                           save=SAVE)
