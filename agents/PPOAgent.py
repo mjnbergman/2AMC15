@@ -98,7 +98,7 @@ class BallerAgent:
         self.policy_learning_rate = 3e-4
         self.value_function_learning_rate = 1e-3
 
-        self.model_train_iterations = 5
+        self.model_train_iterations = 50
 
         self.action_replay_length = 1000
 
@@ -285,7 +285,8 @@ class BallerAgent:
             #ratios, _ = self.policy_model(state_buffer)
 
             policy_loss = -tf.reduce_mean(
-                tf.minimum(ratios * advantage_buffer, min_advantage)
+                tf.minimum(ratios * advantage_buffer,
+                           tf.clip_by_value(ratios, self.clip_ratio, self.clip_ratio) * advantage_buffer)
             )
 
             #  print(state_buffer)

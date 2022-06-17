@@ -60,6 +60,7 @@ class GymEnv(Env):
         #self.reward_fig = plt.figure(figsize=(1024 / DPI, 756 / DPI), dpi=DPI)
         self.reward_axes = self.fig.add_subplot(122)
         self.reward_tally = []
+        self.reward_window_size = 10
 
         self.reset()
 
@@ -75,7 +76,8 @@ class GymEnv(Env):
 
         if len(self.reward_tally) > 0:
             #plt.figure(2)
-            running_average = np.convolve(self.reward_tally, np.ones(5) / 5, mode='valid')
+            running_average = np.convolve(self.reward_tally,
+                                          np.ones(self.reward_window_size) / self.reward_window_size, mode='valid')
             plt.plot(range(len(running_average)), running_average)
             #self.reward_fig.show()
             plt.pause(0.001)
