@@ -1,4 +1,3 @@
-import gym
 from enum import IntEnum
 from gym import Env, spaces
 from gym.utils import seeding
@@ -13,9 +12,10 @@ from .plotting import plot_multipolygon, plot_polygon
 import cv2
 from copy import deepcopy
 
-action_mapping = {0: [0, 1], 1: [1, 0], 2: [0, -1], 3: [-1, 0]}
 
 class Reward(IntEnum):
+    """ Reward map for gym environment
+    """    
     REWARD_PER_AREA = 1,
     TIME_PENALTY = -1,
     DEATH_PENALTY = -100,
@@ -24,6 +24,15 @@ class Reward(IntEnum):
 
 class GymEnv(Env):
     def __init__(self, configFile: str, robots: list, startingPos: list, save: bool):
+        """ Created gym environment
+
+        Args:
+            configFile (str): Filename of map json, e.g. `example-env.json`
+            robots (list): List of Robot objects to spawn on grid
+            startingPos (list): Corresponding starting positions of robots.
+                Corresponds to center of robot in [x, y] format
+            save (bool): Whether images of the environment need to be saved
+        """        
         super(GymEnv, self).__init__()
         self._seed()
 
@@ -43,8 +52,6 @@ class GymEnv(Env):
         self.startingPos = startingPos
         self.initial_robots = robots
         self.robots = robots
-        #self.action_space = spaces.Box(low=-5, high=5, shape=(len(self.robots),2),
-        #                               dtype=np.uint8)
         self.action_space = spaces.Discrete(4)
         DPI = 10
         self.fig = plt.figure(figsize=(1280 / DPI, 756 / DPI), dpi=DPI)
@@ -64,7 +71,10 @@ class GymEnv(Env):
 
         self.reset()
 
+
     def _seed(self, seed=None):
+        """ Seed gym environment 
+        """        
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
@@ -75,11 +85,12 @@ class GymEnv(Env):
         plt.pause(0.1)
 
         if len(self.reward_tally) > 0:
-            #plt.figure(2)
-            running_average = np.convolve(self.reward_tally,
-                                          np.ones(self.reward_window_size) / self.reward_window_size, mode='valid')
+            running_average = np.convolve(
+                self.reward_tally,
+                np.ones(self.reward_window_size) / self.reward_window_size, 
+                mode='valid'
+            )
             plt.plot(range(len(running_average)), running_average)
-            #self.reward_fig.show()
             plt.pause(0.001)
 
     def reset(self):
@@ -136,6 +147,7 @@ class GymEnv(Env):
         image = image.reshape((*self.fig.canvas.get_width_height(), 3))
         return image
 
+
     def step(self, actions):
         plt.figure(1)
         # Move robots
@@ -144,6 +156,7 @@ class GymEnv(Env):
             print("Moving ", i, actions) #actions[i].direction_vector
             robot.move(actions)
 
+        # Update robot status and emit rewards
         alive_vector = [robot.alive for robot in self.robots]
         reward_vector = [robot.areaCleaned * int(Reward.REWARD_PER_AREA)
                          + int(not robot.no_wall) * int(Reward.WALL_PENALTY)
