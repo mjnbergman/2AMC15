@@ -1,27 +1,13 @@
 from continuous_environment.processor import RoombaProcessor, INPUT_SHAPE, WINDOW_LENGTH, INPUT_SHAPE_FIXED
-from continuous_environment import Grid, Robot, RobotAction, GymEnv
+from continuous_environment import Robot, RobotAction, GymEnv
 
 import numpy as np
-import gym
 import tensorflow as tf
 import tensorflow_probability as tfp
 
 from tensorflow.keras import layers
 
-from tensorflow.keras.utils import plot_model
-
 from collections import deque
-
-from keras.models import Sequential
-from keras.layers import Dense, Activation, Flatten, Convolution2D, Permute
-from tensorflow.keras.optimizers import Adam
-import keras.backend as K
-
-from rl.agents.dqn import DQNAgent
-from rl.policy import LinearAnnealedPolicy, BoltzmannQPolicy, EpsGreedyQPolicy
-from rl.memory import SequentialMemory
-from rl.core import Processor
-from rl.callbacks import FileLogger, ModelIntervalCheckpoint
 
 
 class AdditionLayer(tf.keras.layers.Layer):
@@ -33,23 +19,21 @@ class AdditionLayer(tf.keras.layers.Layer):
 
 
 class BallerAgent:
-    def __init__(self, DRAW, SAVE, LOAD):
+    def __init__(self, draw: bool, save: bool, load: bool, env: GymEnv):
+        """_summary_
+
+        Args:
+            draw (bool): WHether to draw images of environment
+            save (bool): Whether to save image of environment
+            load (bool): Whether to laod model
+            env (GymEnv): Environment
+        """        
 
         # Get the environment and extract the number of actions.
-        self.env = GymEnv(configFile="example-env.json",
-                          robots=[
-                              Robot(id=1, radius=0.1, color="blue", batteryLevel=100),
-                              #     Robot(id=2, radius=1, color="green", batteryLevel=100)
-                          ],
-                          startingPos=[
-                              [8, 5],
-                              #        [2, 2]
-                          ],
-                          save=SAVE)
-        self.SAVE = SAVE
-        self.DRAW = DRAW
-        self.LOAD = LOAD
-
+        self.env = env
+        self.save = save
+        self.draw = draw
+        self.load = load
         self.nb_actions = self.env.action_space.n
 
         self.input_shape = INPUT_SHAPE
@@ -90,8 +74,8 @@ class BallerAgent:
         self.checkpoint_weights_filename = 'ppo_weights.h5f_weights_{step}.h5f'
         self.log_filename = 'ppo_log.json'
 
-        if self.LOAD:
-            self.policy_model = tf.keras.models.load_model('ballerboi')
+        if self.load:
+            self.policy_model = tf.keras.models.load_model('PPOAgent')
 
         self.discount_factor = 0.9
 
@@ -139,7 +123,7 @@ class BallerAgent:
             for time_step in range(T):
                 # print(state.shape)
 
-                if self.DRAW:
+                if self.draw:
                     self.env.render()
 
                 action_probs, value_estimate = self.policy_model(state)
@@ -152,7 +136,7 @@ class BallerAgent:
                 chosen_action_x = action_distribution_1.sample()
                 chosen_action_y = action_distribution_2.sample()
 
-                # print("Baller moving to (", chosen_action_x, ", ", chosen_action_y, ")")
+                # print("Agent moving to (", chosen_action_x, ", ", chosen_action_y, ")")
 
                 chosen_action = RobotAction(
                     [self._scale_beta_to_direction_vector(chosen_action_x.numpy(), chosen_action_y.numpy())])
@@ -197,7 +181,7 @@ class BallerAgent:
                 # Early Stopping
                     print("EARLY STOPPING")
                     break
-            self.policy_model.save("ballerboi")
+            self.policy_model.save("PPOModel")
 
     @tf.function
     def _calculate_advantage_from_buffer(self, value_estimate_buffer, reward_buffer):
