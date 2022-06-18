@@ -9,7 +9,7 @@ from .gym_env import GymEnv
 
 
 class RobotAction:
-    def __init__(self, direction_vector: float, p_random=0):
+    def __init__(self, direction_vector: float, p_random: float=0):
         self.direction_vector = Point(direction_vector)
         self.p_random = p_random
 

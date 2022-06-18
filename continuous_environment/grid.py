@@ -49,8 +49,6 @@ class Grid:
         self.axes.margins(x=0, y=0)
 
 
-
-
     def plot_grid(self, resolution: int, draw: bool, save: bool) -> np.array:
         # Create figure 
         # Plot room background

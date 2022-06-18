@@ -114,7 +114,8 @@ class BallerAgent:
     def _scale_direction_vector_to_beta(self, direction_x, direction_y):
         return (direction_x / 8) + 1 / 2, (direction_y / 8) + 1 / 2
 
-    def train(self, nr_epochs, T):
+
+    def train(self, nr_epochs: int, T: int):
 
         advantage_estimates = []
         value_diff_estimates = []
