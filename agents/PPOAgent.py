@@ -74,7 +74,7 @@ class BallerAgent:
         # scaled_action = AdditionLayer()(action)
 
         # actor = layers.Dense(4, activation="relu")(scaled_action)
-        critic = layers.Dense(1, activation="tanh")(criticdense2)
+        critic = layers.Dense(1, activation="linear")(criticdense2)
 
         self.policy_model = tf.keras.Model(inputs=inputs, outputs=[action, critic])
 
@@ -179,30 +179,35 @@ class BallerAgent:
                     break
             reward_tally.append(episodic_reward)
             #print("EPISODIC REWARD: ", episodic_reward)
-            state_buffer, reward_buffer, done_buffer, \
+            state_buffer, reward_buffer, \
             value_estimate_buffer, chosen_action, action_distribution = self._buffers_from_deque()
             print(action_distribution)
             advantage_buffer = self._calculate_advantage_from_buffer(value_estimate_buffer, reward_buffer)
             return_buffer = self._calculate_return_from_buffer(reward_buffer)
 
             for _ in range(self.model_train_iterations):
-                kl = self._train_model(state_buffer, advantage_buffer, done_buffer, value_estimate_buffer,
+                kl, p_loss, v_loss = self._train_model(state_buffer, advantage_buffer,
                                        chosen_action,
                                        action_distribution,
                                        return_buffer)
-
-                # if kl > 1.5 * self.target_kl:
+                print("Kullback-Leibler: ", kl)
+                print("Policy loss: ", p_loss, ", Value Loss: ", v_loss)
+                if kl > 1.5 * self.target_kl:
                 # Early Stopping
-                #    break
+                    print("EARLY STOPPING")
+                    break
             self.policy_model.save("ballerboi")
 
+    @tf.function
     def _calculate_advantage_from_buffer(self, value_estimate_buffer, reward_buffer):
-        advantage_buffer = []
+        advantage_buffer = tf.TensorArray(tf.float32, size=0, dynamic_size=True, clear_after_read=False)
+
         reward_tally = value_estimate_buffer[-1]
         for timestep in range(len(value_estimate_buffer) - 1, 0, -1):
-            advantage_buffer.append(-value_estimate_buffer[timestep] + reward_buffer[timestep] + reward_tally)
-            reward_tally += reward_buffer[timestep] * self.discount_factor
-        return (np.array(advantage_buffer) - np.mean(advantage_buffer)) / (np.std(advantage_buffer) + 1e-10)
+            advantage_buffer = advantage_buffer.write(timestep, -value_estimate_buffer[timestep]+ reward_buffer[timestep] + reward_tally)
+            reward_tally += tf.cast(reward_buffer[timestep], dtype=tf.dtypes.float32) * self.discount_factor
+        stacked_buffer = advantage_buffer.stack()
+        return (stacked_buffer - tf.reduce_mean(stacked_buffer)) / (tf.math.reduce_std(stacked_buffer) + 1e-10)
 
     def _calculate_return_from_buffer(self, reward_buffer):
 
@@ -217,8 +222,13 @@ class BallerAgent:
 
     def _buffers_from_deque(self):
         tup_list = np.array([list(x) for x in self.memory])
-        return tup_list[:, 0], tup_list[:, 1], tup_list[:, 2], tup_list[:, 3], tup_list[:, 4], np.vstack(tup_list[:, 5])
+        return tf.stack(tup_list[:, 0]),\
+        tf.cast(tf.stack(tup_list[:, 1]), dtype=tf.dtypes.float32),\
+        tf.stack(tup_list[:, 3]), \
+        tf.stack([tf.constant([x.direction_vector.x, x.direction_vector.y]) for x in tup_list[:, 4]]),\
+        tf.stack((tup_list[:, 5]))
 
+    @tf.function
     def _get_beta_log_probs(self, state, action):
        # print("In conversion")
         beta_parameters, _ = self.policy_model(state)
@@ -241,8 +251,12 @@ class BallerAgent:
 
         return lp1 + lp2
 
-    def _train_model(self, state_buffer, advantage_buffer, done_buffer, value_estimate_buffer, chosen_action,
+    @tf.function
+    def _train_model(self, state_buffer, advantage_buffer, chosen_action,
                      action_distribution, return_buffer):
+
+        kl_sum = 0.
+
         with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
             ratios = tf.TensorArray(tf.float32, size=0, dynamic_size=True, clear_after_read=False)
             print(ratios)
@@ -252,20 +266,16 @@ class BallerAgent:
                 # print( self._get_beta_log_probs(state_buffer[step], chosen_action[step].direction_vector))
                 # print("SECOND TERM________________________________________")
                 # print(action_distribution[step])
-                direction_tensor = tf.constant([chosen_action[step].direction_vector.x,
-                                                         chosen_action[step].direction_vector.y],
-                    dtype=tf.dtypes.float32)
+                direction_tensor = chosen_action[step] #tf.constant([chosen_action[step][0],
+                                                       #  chosen_action[step][1]],
+                   # dtype=tf.dtypes.float32)
+                kl = self._get_beta_log_probs(state_buffer[step], direction_tensor) - action_distribution[step]
                 temporary_ratio = tf.exp(
-                        self._get_beta_log_probs(state_buffer[step], direction_tensor) -
-                        action_distribution[step]
+                        kl
                     )
+                kl_sum += -kl
         #        print("RATIO ", temporary_ratio, action_distribution[step], direction_tensor)
                 ratios = ratios.write(step, temporary_ratio)
-            min_advantage = tf.where(
-                advantage_buffer > 0,
-                (1 + self.clip_ratio) * advantage_buffer,
-                (1 - self.clip_ratio) * advantage_buffer,
-            )
 
             ratios = ratios.stack()
             ratios = tf.clip_by_value(ratios, -1e2, 1e2)
@@ -279,8 +289,8 @@ class BallerAgent:
             # print(advantage_buffer)
       #      print(ratios)
             # print(state_buffer.shape)
-            state_buffer = np.stack(state_buffer)
-            state_buffer = state_buffer.reshape(state_buffer.shape[0], 84, 84, 1)
+            #state_buffer = np.stack(state_buffer)
+            state_buffer = tf.reshape(state_buffer, (state_buffer.shape[0], 84, 84, 1))
 
             #ratios, _ = self.policy_model(state_buffer)
 
@@ -292,17 +302,11 @@ class BallerAgent:
             #  print(state_buffer)
             _, value = self.policy_model(state_buffer)
             #  print("Value ", value)
-            #  print(return_buffer)
+            print(return_buffer)
             value_loss = tf.reduce_mean((return_buffer - value) ** 2)
 
             total_loss = policy_loss + value_loss
             print("Losses: ", total_loss, policy_loss, value_loss)
         policy_grads = tape.gradient(total_loss, self.policy_model.trainable_variables)
         self.policy_optimizer.apply_gradients(zip(policy_grads, self.policy_model.trainable_variables))
-
-        # kl = tf.reduce_mean(
-        #    logprobability_buffer
-        #    - logprobabilities(actor(observation_buffer), action_buffer)
-        # )
-        # kl = tf.reduce_sum(kl)
-        return 1
+        return (kl_sum/len(state_buffer)), policy_loss, value_loss

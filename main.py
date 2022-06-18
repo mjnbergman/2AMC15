@@ -8,7 +8,7 @@ from agents.PPOAgent import BallerAgent
 MAX_ITER = 100
 DRAW = True
 SAVE_IMAGES = True
-LOAD_MODEL = True
+LOAD_MODEL = False
 
 agent = BallerAgent(DRAW, SAVE_IMAGES, LOAD_MODEL)
 agent.train(1000, 100)
