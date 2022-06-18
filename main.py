@@ -6,12 +6,10 @@ from continuous_environment import Grid, Robot
 grid = Grid(
     configFile="example-env.json", 
     robots=[
-        Robot(id=1, radius=0.5, color="blue", batteryLevel=100),
-        Robot(id=2, radius=1, color="green", batteryLevel=100)
+        Robot(id=1, radius=0.15, color="blue", batteryLevel=100)
     ],
     startingPos=[
-        [1, 1],
-        [2, 2]
+        [9.8, 5.3]
     ]
 )
 
@@ -19,6 +17,9 @@ grid = Grid(
 MAX_ITER = 100
 DRAW = False
 SAVE = True
+
+image = grid.plot_grid(resolution=650, draw=DRAW, save=SAVE)
+quit()
 
 # Main loop
 start_time = time.time() # Measure time

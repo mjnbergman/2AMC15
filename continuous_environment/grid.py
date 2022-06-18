@@ -52,8 +52,8 @@ class Grid:
         self.axes.margins(x=0, y=0)
 
         # Plot room background
-        self.axes.set_xlim((-0.5, self.roomsize[0]+0.5))
-        self.axes.set_ylim((-0.5, self.roomsize[1]+0.5))
+        self.axes.set_xlim((-0.3, self.roomsize[0]+0.3))
+        self.axes.set_ylim((-0.3, self.roomsize[1]+0.3))
         self.axes.set_facecolor("black")
         self.axes.fill(
             [0, 0, self.roomsize[0], self.roomsize[0], 0],
