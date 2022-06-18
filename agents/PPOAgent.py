@@ -75,7 +75,7 @@ class BallerAgent:
         self.log_filename = 'ppo_log.json'
 
         if self.load:
-            self.policy_model = tf.keras.models.load_model('PPOAgent')
+            self.policy_model = tf.keras.models.load_model('PPOModel')
 
         self.discount_factor = 0.9
 
@@ -166,7 +166,7 @@ class BallerAgent:
             #print("EPISODIC REWARD: ", episodic_reward)
             state_buffer, reward_buffer, \
             value_estimate_buffer, chosen_action, action_distribution = self._buffers_from_deque()
-            print(action_distribution)
+            # print(action_distribution)
             advantage_buffer = self._calculate_advantage_from_buffer(value_estimate_buffer, reward_buffer)
             return_buffer = self._calculate_return_from_buffer(reward_buffer)
 

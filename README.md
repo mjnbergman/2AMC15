@@ -12,5 +12,3 @@ We installed our environment in the following way:
 This ensured for us that if a CUDA GPU is available, it can be used.
 
 
-## TODO
-- [ ] Check `gym_env.py` line 57: weird aspect ratio?

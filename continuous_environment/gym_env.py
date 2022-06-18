@@ -11,6 +11,7 @@ from .utils import parse_roomsize, parse_polygons
 from .plotting import plot_multipolygon, plot_polygon
 import cv2
 from copy import deepcopy
+import time
 
 
 class Reward(IntEnum):
@@ -54,8 +55,8 @@ class GymEnv(Env):
         self.robots = robots
         self.action_space = spaces.Discrete(4)
         DPI = 10
-        self.fig = plt.figure(figsize=(1280 / DPI, 756 / DPI), dpi=DPI)
-        self.axes = self.fig.add_subplot(121)
+        self.fig = plt.figure(figsize=(756 / DPI, 756 / DPI), dpi=DPI)
+        self.axes = self.fig.add_subplot(111)
 
         # Remove borders
         self.axes.set_xticklabels([])
@@ -65,7 +66,7 @@ class GymEnv(Env):
         self.axes.margins(x=0, y=0)
 
         #self.reward_fig = plt.figure(figsize=(1024 / DPI, 756 / DPI), dpi=DPI)
-        self.reward_axes = self.fig.add_subplot(122)
+        # self.reward_axes = self.fig.add_subplot(122)
         self.reward_tally = []
         self.reward_window_size = 10
 
@@ -91,7 +92,10 @@ class GymEnv(Env):
                 mode='valid'
             )
             plt.plot(range(len(running_average)), running_average)
+            plt.title(time.ctime())
+            plt.savefig("loss.jpg")
             plt.pause(0.001)
+
 
     def reset(self):
         plt.figure(1)
@@ -153,7 +157,7 @@ class GymEnv(Env):
         # Move robots
         for i, robot in enumerate(self.robots):
             print(f"Robot {robot.id} battery: {robot.batteryLevel}")
-            print("Moving ", i, actions) #actions[i].direction_vector
+            # print("Moving ", i, actions) #actions[i].direction_vector
             robot.move(actions)
 
         # Update robot status and emit rewards
@@ -200,8 +204,8 @@ class GymEnv(Env):
         if self.save:
             cv2.imwrite(f"images/{max(self.moves.values())}.png", image[:, :, ::-1])
 
-        print(np.all(~np.array(alive_vector)))
-        print(alive_vector)
+        # print(np.all(~np.array(alive_vector)))
+        # print(alive_vector)
 
         self.reward_tally.append(np.sum(reward_vector))
 
