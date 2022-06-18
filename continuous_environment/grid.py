@@ -11,6 +11,13 @@ from .utils import parse_roomsize, parse_polygons
 
 class Grid:
     def __init__(self, configFile: str, robots: list, startingPos: list):
+        """ Initialize environment
+
+        Args:
+            configFile (str): Filename for map json
+            robots (list): List of robot objects to spawn
+            startingPos (list): Corresponding starting positions (center)
+        """        
         # Make folder for images
         if os.path.exists("images"):
             shutil.rmtree("images", ignore_errors=True)
