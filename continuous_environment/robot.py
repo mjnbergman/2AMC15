@@ -1,14 +1,12 @@
-from shapely.geometry import Point, LineString, GeometryCollection, MultiLineString, MultiPoint
+from shapely.geometry import Point, LineString
 from shapely.geometry.base import BaseMultipartGeometry
 import numpy as np
-import random
 from scipy.spatial import distance
 
 
-from .gym_env import GymEnv
-
-
 class RobotAction:
+    """ Object for tracking robot movements in gym environment
+    """    
     def __init__(self, direction_vector: float, p_random: float=0):
         self.direction_vector = Point(direction_vector)
         self.p_random = p_random
@@ -35,6 +33,7 @@ class Robot:
         self.no_wall = True
         self.areaCleaned = 0
 
+
     def spawn(self, grid, startPos: list):
         """ Adds grid information to robot and sets startin location and boundary
 
@@ -49,27 +48,28 @@ class Robot:
         self.no_wall = True
         self.death_tile = False
 
-    def move(self, action):
 
-        directionPoint = Point(action.direction_vector) #.direction_vector
+    def move(self, action: RobotAction):
+        """ Handle robot movement
+
+        Args:
+            action (RobotAction): Object with desired direction vector to move in
+        """        
+        directionPoint = Point(action.direction_vector)
         self.areaCleaned = 0
-
-        # Determine if random move is taken
-     #   if np.random.binomial(n=1, p=action.p_random) == 1:
-     #       directionPoint = Point(
-     #           random.uniform(-5, 5),
-     #           random.uniform(-5, 5)
-     #       )
 
         # Determine valid direction and new location
         newDirectionPoint = self._valid_direction(directionPoint)
 
+        # Check if obstacles are hit during movement
         self.no_wall = False
         self.death_tile = False
 
+        # If valid movement is equal to desired, no wall must be hit
         if newDirectionPoint.x == directionPoint.x and newDirectionPoint.y == directionPoint.y:
             self.no_wall = True
 
+        # Determine new center point after move and area passed over to clean
         newCenterPoint = Point(
             self.centerPoint.x + newDirectionPoint.x,
             self.centerPoint.y + newDirectionPoint.y
@@ -77,6 +77,7 @@ class Robot:
         movementLine = LineString([self.centerPoint, newCenterPoint])
         movementPath = movementLine.buffer(self.radius)
 
+        # Only handle if alive
         if self.alive:
             self.grid.moves[self.id] += 1
 
@@ -98,18 +99,38 @@ class Robot:
             if self.batteryLevel <= 0:
                 self.alive = False
 
+
     def _valid_direction(self, directionPoint: Point, tol: float = 1e-2) -> Point:
+        """ Return valid direction vector in same direction, i.e. by handling 
+            collisions. 
+
+        Args:
+            directionPoint (Point): Original desired direction
+            tol (float, optional): Numerical tolerance. Defaults to 1e-2.
+
+        Returns:
+            Point: Valid direction vector in same direction as original
+        """        
+        # Determine new centerpoint if direction vector is added
         newCenterPoint = Point(
             self.centerPoint.x + directionPoint.x,
             self.centerPoint.y + directionPoint.y
         )
 
+        # Get line between start and end point, i.e. the path the robot walks
         movementPath = LineString([self.centerPoint, newCenterPoint])
 
+        # Remove obstacles along the movement path, leaving only valid positions
+        # The obstacles are buffered to account for robot radius, as we consider
+        # center point for movement path
         validMovements = movementPath - self.grid.obstacles.buffer(self.radius - tol)
 
+        # If no moves arep ossible return empty
         if validMovements.is_empty or self.centerPoint.distance(validMovements) > 1e-4:
             return Point(0, 0)
+        
+        # Otherwise find part of valid movements that touches the robot, and 
+        # then take the furthest point in that geometry as the new valid dir.
         if isinstance(validMovements, BaseMultipartGeometry):
             distanceToGeometries = np.array([
                 self.centerPoint.distance(geometry)
