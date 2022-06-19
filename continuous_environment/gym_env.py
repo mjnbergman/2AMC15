@@ -53,7 +53,9 @@ class GymEnv(Env):
         self.startingPos = startingPos
         self.initial_robots = robots
         self.robots = robots
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Box(low=-5, high=5, shape=(len(self.robots),2),
+                                       dtype=np.float32)
+        #self.action_space = spaces.Discrete(4)
         DPI = 10
         self.fig = plt.figure(figsize=(756 / DPI, 756 / DPI), dpi=DPI)
         self.axes = self.fig.add_subplot(111)
@@ -153,12 +155,12 @@ class GymEnv(Env):
 
 
     def step(self, actions):
-        plt.figure(1)
+        #plt.figure(1)
         # Move robots
         for i, robot in enumerate(self.robots):
             print(f"Robot {robot.id} battery: {robot.batteryLevel}")
-            # print("Moving ", i, actions) #actions[i].direction_vector
-            robot.move(actions)
+            print("Moving ", i, actions[0]) #actions[i].direction_vector
+            robot.move(actions[0])
 
         # Update robot status and emit rewards
         alive_vector = [robot.alive for robot in self.robots]

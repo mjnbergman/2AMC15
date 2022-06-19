@@ -51,11 +51,14 @@ class Robot:
 
     def move(self, action: RobotAction):
         """ Handle robot movement
+=======
+        directionPoint = Point(action) #.direction_vector
+        self.areaCleaned = 0
 
         Args:
             action (RobotAction): Object with desired direction vector to move in
         """        
-        directionPoint = Point(action.direction_vector)
+        directionPoint = Point(action)
         self.areaCleaned = 0
 
         # Determine valid direction and new location
