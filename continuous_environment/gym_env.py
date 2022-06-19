@@ -13,6 +13,8 @@ import cv2
 from copy import deepcopy
 import time
 
+RESOLUTION = 256
+
 
 class Reward(IntEnum):
     """ Reward map for gym environment
@@ -53,11 +55,12 @@ class GymEnv(Env):
         self.startingPos = startingPos
         self.initial_robots = robots
         self.robots = robots
-        self.action_space = spaces.Box(low=-5, high=5, shape=(len(self.robots),2),
+        self.observation_space = spaces.Box(0, 255, [RESOLUTION, RESOLUTION, 3], dtype=np.uint8)
+        self.action_space = spaces.Box(low=-5, high=5, shape=(2,),
                                        dtype=np.float32)
         #self.action_space = spaces.Discrete(4)
         DPI = 10
-        self.fig = plt.figure(figsize=(756 / DPI, 756 / DPI), dpi=DPI)
+        self.fig = plt.figure(figsize=(RESOLUTION / DPI, RESOLUTION / DPI), dpi=DPI)
         self.axes = self.fig.add_subplot(111)
 
         # Remove borders
@@ -67,7 +70,7 @@ class GymEnv(Env):
         self.axes.set_yticks([])
         self.axes.margins(x=0, y=0)
 
-        #self.reward_fig = plt.figure(figsize=(1024 / DPI, 756 / DPI), dpi=DPI)
+        #self.reward_fig = plt.figure(figsize=(1024 / DPI, RESOLUTION / DPI), dpi=DPI)
         # self.reward_axes = self.fig.add_subplot(122)
         self.reward_tally = []
         self.reward_window_size = 10
@@ -102,6 +105,11 @@ class GymEnv(Env):
     def reset(self):
         plt.figure(1)
         print("RESET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        # Make folder for images
+        if os.path.exists("images"):
+            shutil.rmtree("images", ignore_errors=True)
+        os.mkdir("images")
+
         self.obstacles = GeometryCollection(
             parse_roomsize(self.config["roomsize"]) + \
             parse_polygons(self.config["obstacles"])
@@ -158,16 +166,15 @@ class GymEnv(Env):
         #plt.figure(1)
         # Move robots
         for i, robot in enumerate(self.robots):
-            print(f"Robot {robot.id} battery: {robot.batteryLevel}")
-            print("Moving ", i, actions[0]) #actions[i].direction_vector
-            robot.move(actions[0])
+            # print(f"Robot {robot.id} battery: {robot.batteryLevel} \nMoving {i} {actions}", end="\r")
+            robot.move(actions)
 
         # Update robot status and emit rewards
         alive_vector = [robot.alive for robot in self.robots]
         reward_vector = [robot.areaCleaned * int(Reward.REWARD_PER_AREA)
                          + int(not robot.no_wall) * int(Reward.WALL_PENALTY)
                          + int(robot.death_tile) * int(Reward.DEATH_PENALTY) for robot in self.robots]
-        print("Reward ", reward_vector, " cleaned ", self.robots[0].areaCleaned, int(self.robots[0].alive))
+        print(f"Reward {reward_vector} cleaned {self.robots[0].areaCleaned} {int(self.robots[0].alive)}", end="\r")
 
         # Create figure
         # Plot room background
@@ -202,6 +209,7 @@ class GymEnv(Env):
         self.fig.canvas.draw()
         image = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
         image = image.reshape((*self.fig.canvas.get_width_height(), 3))
+        # image = np.moveaxis(image, 2, 0)
 
         if self.save:
             cv2.imwrite(f"images/{max(self.moves.values())}.png", image[:, :, ::-1])
@@ -211,4 +219,4 @@ class GymEnv(Env):
 
         self.reward_tally.append(np.sum(reward_vector))
 
-        return image, np.sum(reward_vector), np.all(~np.array(alive_vector)), {}
+        return image, np.sum(reward_vector), bool(np.all(~np.array(alive_vector))), {}
