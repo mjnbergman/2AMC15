@@ -18,8 +18,8 @@ MAX_ITER = 100
 DRAW = False
 SAVE = True
 
-image = grid.plot_grid(resolution=650, draw=DRAW, save=SAVE)
-quit()
+# image = grid.plot_grid(resolution=650, draw=DRAW, save=SAVE)
+
 
 # Main loop
 start_time = time.time() # Measure time
