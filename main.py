@@ -4,7 +4,7 @@ from continuous_environment import Grid, Robot
 
 # Define environment and robots
 grid = Grid(
-    configFile="example-env.json", 
+    configFile="example-env-full.json", 
     robots=[
         Robot(id=1, radius=0.15, color="blue", batteryLevel=100)
     ],
@@ -18,7 +18,8 @@ MAX_ITER = 100
 DRAW = False
 SAVE = True
 
-# image = grid.plot_grid(resolution=650, draw=DRAW, save=SAVE)
+image = grid.plot_grid(resolution=650, draw=DRAW, save=SAVE)
+quit()
 
 
 # Main loop
