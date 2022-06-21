@@ -50,16 +50,17 @@ class GymEnv(Env):
         super(GymEnv, self).__init__()
         self._seed()
 
-        # # Make folder for images
         # Make folder for images
         if os.path.exists("images"):
             shutil.rmtree("images", ignore_errors=True)
         os.mkdir("images")
 
+        self.configFile = configFile
         # Load config JSON object
         with open(configFile) as file:
             self.config = json.load(file)
-
+        
+        
         self.save = save
         
         self.percentage_cleaned = []
@@ -134,7 +135,7 @@ class GymEnv(Env):
         if os.path.exists("images"):
             shutil.rmtree("images", ignore_errors=True)
         os.mkdir("images")
-
+        
         self.obstacles = GeometryCollection(
             parse_roomsize(self.config["roomsize"]) + \
             parse_polygons(self.config["obstacles"])
@@ -145,6 +146,7 @@ class GymEnv(Env):
         self.totalGoalArea = self.goals.area
         self.death = MultiPolygon(parse_polygons(self.config["death"]))
        
+
         self.moves = {}
         
         # Repawn robots
@@ -247,15 +249,17 @@ class GymEnv(Env):
         if self.save:
             cv2.imwrite(f"images/{max(self.moves.values())}.png", image[:, :, ::-1])
 
+
         self.reward_tally.append(np.sum(reward_vector))
 
         # If robots are not alive or floor cleaned 95%, print percentage cleaned this run and store it
-        if self.robots[0].grid.goals.area/self.totalGoalArea < .05 or bool(np.all(~np.array(alive_vector))) == True:
+        if max(self.moves.values()) == 150 or bool(np.all(~np.array(alive_vector))) == True:
             print(max(self.moves.values()), self.robots[0].grid.goals.area/self.totalGoalArea)
             self.percentage_cleaned.append(self.robots[0].grid.goals.area/self.totalGoalArea)
         
         # If floor cleaned 95% quit
-        if self.robots[0].grid.goals.area/self.totalGoalArea < .05:
+        if max(self.moves.values()) == 150 or self.robots[0].grid.goals.area/self.totalGoalArea < .05:
             return image, np.sum(reward_vector), True, {}
+
 
         return image, np.sum(reward_vector), bool(np.all(~np.array(alive_vector))), {}
