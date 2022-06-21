@@ -10,7 +10,7 @@
 
 
 from enum import IntEnum
-from gym import Env, spaces,GoalEnv
+from gym import Env, spaces
 from gym.utils import seeding
 import os
 import shutil
