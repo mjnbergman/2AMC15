@@ -18,7 +18,7 @@ To run the code on Google Colab, you should do the following things
 *Troubleshooting tips:* If Colab can't find ```Data Intelligence Challenge/2AMC15/``` check that the uploaded folder is indeed located in ```My Drive``` and that ny double clicking on it that it's name is actually ```Data Intelligence Challenge```
 
 ### Local
-
+To run locally you need at least to install ```keras==2.8.0```, ```keras-rl==0.4.2``` and ```stable-baselines3==1.5.0```. Other packages might need to be installed. If encountering errors you could install all packages from the ```requirements.txt``` which contains all Colab packages. This can be done via ```pip install -r requirements.txt```.
 
 ## How to replicate experiments
 To replicate the experiments in the report, either the model can be rerun manually in the training header or the pretrained models can be used in the evaluation header. The configurations of map, starting positions and battery sizes are provided at the top of both respective cells; the unused configuarations should be commented out.
