@@ -1,3 +1,10 @@
+###
+#  plotting: 
+#  
+#  (Multi)polygon plot functions
+
+
+
 from shapely.geometry import Polygon, MultiPolygon, LineString
 from matplotlib.axes import Axes
 

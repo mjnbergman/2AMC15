@@ -1,7 +1,17 @@
+###
+#  robot:
+#
+#  Robot: robot instance containing its location, battery level and other information
+#   - spawn function places robot on grid
+#   - move function moves robot after a collission check
+#   - _valid_direction function performs a colission and adjusts move     
+#  
+#  RobotAction: action performed by robot
+
+
 from shapely.geometry import Point, LineString
 from shapely.geometry.base import BaseMultipartGeometry
 import numpy as np
-from scipy.spatial import distance
 
 
 class RobotAction:
@@ -51,9 +61,6 @@ class Robot:
 
     def move(self, action: RobotAction):
         """ Handle robot movement
-=======
-        directionPoint = Point(action) #.direction_vector
-        self.areaCleaned = 0
 
         Args:
             action (RobotAction): Object with desired direction vector to move in
@@ -77,6 +84,7 @@ class Robot:
             self.centerPoint.x + newDirectionPoint.x,
             self.centerPoint.y + newDirectionPoint.y
         )
+        # print(newCenterPoint)
         movementLine = LineString([self.centerPoint, newCenterPoint])
         movementPath = movementLine.buffer(self.radius)
 
@@ -97,11 +105,11 @@ class Robot:
             newDirtyArea = self.grid.goals.area
             self.areaCleaned += (oldDirtyArea - newDirtyArea)
 
-            # Update battery
-            self.batteryLevel = max(0, self.batteryLevel - distance.euclidean(directionPoint.x, directionPoint.y))
+            # Update battery as distance moved
+            self.batteryLevel = max(0, self.batteryLevel - np.sqrt(newDirectionPoint.x**2+ newDirectionPoint.y**2))
+            
             if self.batteryLevel <= 0:
                 self.alive = False
-
 
     def _valid_direction(self, directionPoint: Point, tol: float = 1e-2) -> Point:
         """ Return valid direction vector in same direction, i.e. by handling 

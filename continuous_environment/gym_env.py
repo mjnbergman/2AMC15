@@ -1,5 +1,16 @@
+###
+#  gym_env: 
+#  
+#  GymEnv: custom Gym compliant environment
+#   - render function that renders the environment
+#   - reset function that resets it
+#   - step function that takes one step updates environment and returns reward
+#  
+#  Reward: Reward map for environment
+
+
 from enum import IntEnum
-from gym import Env, spaces
+from gym import Env, spaces,GoalEnv
 from gym.utils import seeding
 import os
 import shutil
@@ -13,16 +24,16 @@ import cv2
 from copy import deepcopy
 import time
 
-RESOLUTION = 256
+RESOLUTION = 128
 
 
 class Reward(IntEnum):
     """ Reward map for gym environment
     """    
-    REWARD_PER_AREA = 1,
+    REWARD_PER_AREA = 100,
     TIME_PENALTY = -1,
     DEATH_PENALTY = -100,
-    WALL_PENALTY = -5
+    WALL_PENALTY = -1
 
 
 class GymEnv(Env):
@@ -39,6 +50,7 @@ class GymEnv(Env):
         super(GymEnv, self).__init__()
         self._seed()
 
+        # # Make folder for images
         # Make folder for images
         if os.path.exists("images"):
             shutil.rmtree("images", ignore_errors=True)
@@ -49,7 +61,9 @@ class GymEnv(Env):
             self.config = json.load(file)
 
         self.save = save
-
+        
+        self.percentage_cleaned = []
+        
         # Keep track of all objects in environment
         self.roomsize = self.config["roomsize"]
         self.startingPos = startingPos
@@ -58,7 +72,7 @@ class GymEnv(Env):
         self.observation_space = spaces.Box(0, 255, [RESOLUTION, RESOLUTION, 3], dtype=np.uint8)
         self.action_space = spaces.Box(low=-5, high=5, shape=(2,),
                                        dtype=np.float32)
-        #self.action_space = spaces.Discrete(4)
+
         DPI = 10
         self.fig = plt.figure(figsize=(RESOLUTION / DPI, RESOLUTION / DPI), dpi=DPI)
         self.axes = self.fig.add_subplot(111)
@@ -86,6 +100,10 @@ class GymEnv(Env):
 
 
     def render(self):
+        """ Renders map in current state and running average of 
+            rewards over time
+
+        """     
         plt.figure(1)
         plt.draw()
         plt.pause(0.1)
@@ -103,8 +121,15 @@ class GymEnv(Env):
 
 
     def reset(self):
+        """ Reset the gym environment for the next iteration 
+
+        Returns: 
+            environment image
+        """     
         plt.figure(1)
+        
         print("RESET!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        
         # Make folder for images
         if os.path.exists("images"):
             shutil.rmtree("images", ignore_errors=True)
@@ -114,14 +139,16 @@ class GymEnv(Env):
             parse_roomsize(self.config["roomsize"]) + \
             parse_polygons(self.config["obstacles"])
         )
+
+        # Read out goals, calculate goal area and read out death areas
         self.goals = MultiPolygon(parse_polygons(self.config["goals"]))
         self.totalGoalArea = self.goals.area
         self.death = MultiPolygon(parse_polygons(self.config["death"]))
-
-        # Spawn robots
+       
         self.moves = {}
+        
+        # Repawn robots
         self.robots = deepcopy(self.initial_robots)
-
         for i, robot in enumerate(self.robots):
             robot.spawn(self, self.startingPos[i])
             self.moves[robot.id] = 0
@@ -143,10 +170,10 @@ class GymEnv(Env):
 
         # Plot obstacles
         for geometry in self.obstacles.geoms:
-            if isinstance(geometry, MultiPolygon):
-                plot_multipolygon(geometry, "black", self.axes)
-            elif isinstance(geometry, Polygon):
+            if isinstance(geometry, Polygon):
                 plot_polygon(geometry, "black", self.axes)
+            elif isinstance(geometry, MultiPolygon):
+                plot_multipolygon(geometry, "black", self.axes)
             elif isinstance(geometry, LineString):
                 continue
 
@@ -163,18 +190,24 @@ class GymEnv(Env):
 
 
     def step(self, actions):
-        #plt.figure(1)
-        # Move robots
+        """ Move the robot in the direction of the action. Checks
+        if move is valid and if not corrects it. Returns new image, reward and if game ended
+        
+        Args:
+            actions (tuple): the movement of the robot
+
+        Returns: 
+            environment image, reward, 
+        """
         for i, robot in enumerate(self.robots):
-            # print(f"Robot {robot.id} battery: {robot.batteryLevel} \nMoving {i} {actions}", end="\r")
             robot.move(actions)
 
+        
         # Update robot status and emit rewards
         alive_vector = [robot.alive for robot in self.robots]
         reward_vector = [robot.areaCleaned * int(Reward.REWARD_PER_AREA)
                          + int(not robot.no_wall) * int(Reward.WALL_PENALTY)
                          + int(robot.death_tile) * int(Reward.DEATH_PENALTY) for robot in self.robots]
-        print(f"Reward {reward_vector} cleaned {self.robots[0].areaCleaned} {int(self.robots[0].alive)}", end="\r")
 
         # Create figure
         # Plot room background
@@ -193,10 +226,10 @@ class GymEnv(Env):
 
         # Plot obstacles
         for geometry in self.obstacles.geoms:
-            if isinstance(geometry, MultiPolygon):
-                plot_multipolygon(geometry, "black", self.axes)
-            elif isinstance(geometry, Polygon):
+            if isinstance(geometry, Polygon):
                 plot_polygon(geometry, "black", self.axes)
+            elif isinstance(geometry, MultiPolygon):
+                plot_multipolygon(geometry, "black", self.axes)
             elif isinstance(geometry, LineString):
                 continue
 
@@ -207,16 +240,22 @@ class GymEnv(Env):
 
         # Output to numpy array
         self.fig.canvas.draw()
+        plt.plot()
         image = np.frombuffer(self.fig.canvas.tostring_rgb(), dtype=np.uint8)
         image = image.reshape((*self.fig.canvas.get_width_height(), 3))
-        # image = np.moveaxis(image, 2, 0)
 
         if self.save:
             cv2.imwrite(f"images/{max(self.moves.values())}.png", image[:, :, ::-1])
 
-        # print(np.all(~np.array(alive_vector)))
-        # print(alive_vector)
-
         self.reward_tally.append(np.sum(reward_vector))
+
+        # If robots are not alive or floor cleaned 95%, print percentage cleaned this run and store it
+        if self.robots[0].grid.goals.area/self.totalGoalArea < .05 or bool(np.all(~np.array(alive_vector))) == True:
+            print(max(self.moves.values()), self.robots[0].grid.goals.area/self.totalGoalArea)
+            self.percentage_cleaned.append(self.robots[0].grid.goals.area/self.totalGoalArea)
+        
+        # If floor cleaned 95% quit
+        if self.robots[0].grid.goals.area/self.totalGoalArea < .05:
+            return image, np.sum(reward_vector), True, {}
 
         return image, np.sum(reward_vector), bool(np.all(~np.array(alive_vector))), {}

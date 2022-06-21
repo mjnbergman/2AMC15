@@ -1,5 +1,10 @@
-from shapely.geometry import LineString, Polygon
+###
+#  utils:
+#
+#  parsing geometries functions
 
+
+from shapely.geometry import LineString, Polygon
 
 def parse_roomsize(roomsize: list) -> list:
     """ Parses room size to LineString representing outer bounding box. Used
